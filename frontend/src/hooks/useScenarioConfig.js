@@ -31,7 +31,20 @@ const initialState = {
 function reducer(state, action) {
     switch (action.type) {
         case 'loaded': {
-            const { defaults, saved } = action;
+            const { saved } = action;
+
+            /* Normalisation unique à l'entrée : le reste de l'écran peut
+               ensuite compter sur la présence de detections et
+               default_detections. Un moteur plus ancien, ou une réponse
+               partielle, ne doit pas faire planter la page. */
+            const detectionSpecs = action.defaults.detections ?? {};
+            const defaults = {
+                ...action.defaults,
+                detections: detectionSpecs,
+                default_detections:
+                    action.defaults.default_detections ?? Object.keys(detectionSpecs),
+            };
+
             const thresholds = {};
             for (const [key, spec] of Object.entries(defaults.thresholds)) {
                 thresholds[key] = saved?.thresholds?.[key] ?? spec.default;
@@ -39,7 +52,7 @@ function reducer(state, action) {
 
             const sourceType = saved?.source?.type ?? 'file';
             const savedValue = saved?.source?.value ?? '';
-            const detections = saved?.detections ?? defaults.default_detections;
+            const detections = saved?.detections ?? defaults.default_detections ?? [];
             const selectableTypes = activeThresholdKeys(defaults, detections);
 
             return {
