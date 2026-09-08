@@ -2,7 +2,7 @@
 
 from flask import Flask, jsonify
 
-from engine import settings
+from engine import runtime, settings
 from engine.api import api
 
 
@@ -12,6 +12,10 @@ def create_app() -> Flask:
     # Les messages d'erreur sont en français : pas d'échappement \uXXXX.
     app.json.ensure_ascii = False
     app.register_blueprint(api)
+
+    # L'import de Torch est lent à froid : il démarre maintenant, en fond, pour
+    # ne pas être payé au moment où l'utilisateur lance son analyse.
+    runtime.warmup.begin()
 
     @app.errorhandler(413)
     def too_large(_):

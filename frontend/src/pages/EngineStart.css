@@ -1,0 +1,196 @@
+.boot {
+    display: flex;
+    justify-content: center;
+    padding: 64px 24px;
+}
+
+.boot__card {
+    width: min(640px, 100%);
+    padding: 32px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+}
+
+.boot__title {
+    margin: 8px 0 4px;
+    font-size: 1.5rem;
+    color: var(--text-hi);
+}
+
+.boot__subtitle {
+    margin: 0 0 28px;
+    color: var(--text-mid);
+    font-size: 0.92rem;
+}
+
+/* ── étapes ── */
+
+.boot__steps {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.boot__step {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: var(--bg-inset);
+}
+
+.boot__step--running {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.boot__step--failed {
+    border-color: var(--danger);
+    background: var(--danger-soft);
+}
+
+.boot__step--pending,
+.boot__step--cancelled,
+.boot__step--skipped {
+    opacity: 0.55;
+}
+
+.boot__mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    border-radius: 50%;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: var(--bg-subtle);
+    color: var(--text-lo);
+}
+
+.boot__step--ok .boot__mark {
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+.boot__step--failed .boot__mark {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.boot__step--running .boot__mark {
+    background: transparent;
+}
+
+.boot__spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--accent-soft);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: boot-spin 0.7s linear infinite;
+}
+
+@keyframes boot-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .boot__spinner {
+        animation-duration: 2.4s;
+    }
+}
+
+.boot__step-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.boot__step-label {
+    font-size: 0.92rem;
+    color: var(--text-hi);
+}
+
+.boot__step-detail {
+    font-size: 0.8rem;
+    color: var(--text-mid);
+    font-family: var(--font-mono);
+    overflow-wrap: anywhere;
+}
+
+.boot__step--failed .boot__step-detail {
+    color: var(--danger);
+    font-family: var(--font-sans);
+}
+
+/* ── messages ── */
+
+.boot__hint {
+    margin: 16px 0 0;
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background: var(--warning-soft);
+    color: var(--text-mid);
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+
+.boot__error {
+    margin-top: 20px;
+    padding: 14px 16px;
+    border: 1px solid var(--danger);
+    border-radius: var(--radius-md);
+    background: var(--danger-soft);
+}
+
+.boot__error-title {
+    margin: 0;
+    color: var(--text-hi);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.boot__error-hint {
+    margin: 6px 0 0;
+    color: var(--text-mid);
+    font-size: 0.83rem;
+}
+
+/* ── actions ── */
+
+.boot__actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.boot__elapsed {
+    margin-left: auto;
+    color: var(--text-lo);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 600px) {
+    .boot {
+        padding: 24px 16px;
+    }
+
+    .boot__actions {
+        flex-wrap: wrap;
+    }
+}

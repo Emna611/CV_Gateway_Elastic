@@ -41,9 +41,20 @@ scenarios:
       - name: "yolo11m-pose.pt"
         role: "Estimation de pose"
         path: "../Office_Monitoring_v2/Sleeping/yolo11m-pose.pt"
+        # Modèle principal : sa confiance est pilotée par le curseur.
+        primary: true
       - name: "phone_model.pt"
         role: "Détection de téléphone"
         path: "../Office_Monitoring_v2/phone_model.pt"
+        # Seuil calibré du prototype : ce modèle est bruyant en dessous.
+        confidence: 0.88
+
+    inference:
+      imgsz: 1280
+      iou: 0.5
+      # Déplacement du centre de la boîte, en fraction de sa largeur, au-delà
+      # duquel la personne est considérée en activité.
+      motion_ratio: 0.04
 
     # Classes activables indépendamment. Chaque détection déclare les seuils
     # qu'elle gouverne et les modèles qu'elle exige : le moteur ne charge que
@@ -125,6 +136,24 @@ scenarios:
       - name: "bestfinal.pt"
         role: "Détection des EPI"
         path: "../PPE_Restaurant/bestfinal.pt"
+        primary: true
+
+    inference:
+      imgsz: 640
+      # Inférence une image sur N : le modèle EPI tourne en CPU.
+      frame_skip: 2
+      min_box_area: 2500
+      classes:
+        ["apron", "glove", "hairnet", "no_apron", "no_glove", "no_hairnet"]
+      # Seuils par classe repris de PPE_Restaurant/config.py : le modèle n'a
+      # pas la même qualité sur chaque équipement.
+      per_class_confidence:
+        apron: 0.30
+        glove: 0.35
+        hairnet: 0.65
+        no_apron: 0.22
+        no_glove: 0.45
+        no_hairnet: 0.55
 
     detections:
       glove:

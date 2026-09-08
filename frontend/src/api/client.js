@@ -70,6 +70,26 @@ export function testEmail(scenarioId, recipient) {
     return postJson('/api/email/test', { scenario: scenarioId, recipient });
 }
 
+/* Le démarrage renvoie 202 : la séquence se poursuit côté moteur et son
+   avancement se lit avec getEngineStatus. */
+export function startEngine(scenarioId, config) {
+    return postJson('/api/engine/start', { scenario: scenarioId, config });
+}
+
+export function getEngineStatus() {
+    return request('/api/engine/status');
+}
+
+export function getEngineSnapshot() {
+    return request('/api/engine/snapshot');
+}
+
+export function stopEngine() {
+    return postJson('/api/engine/stop', {});
+}
+
+export const ENGINE_STREAM_URL = '/api/engine/stream';
+
 /* Le téléversement passe par XMLHttpRequest : fetch n'expose pas la
    progression d'envoi, et une vidéo de plusieurs centaines de Mo mérite une
    barre de progression réelle. */

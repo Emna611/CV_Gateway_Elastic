@@ -378,6 +378,66 @@ def test_rtsp(url: str) -> dict:
 TESTERS = {"file": test_file, "youtube": test_youtube, "rtsp": test_rtsp}
 
 
+def open_capture(source_type: str, value: str):
+    """Ouvre la source pour le traitement continu et renvoie (capture, méta).
+
+    Utilisée au démarrage du moteur : le test de l'écran de configuration ne
+    garantit rien sur l'instant présent, la connexion est donc refaite.
+    """
+    value = (value or "").strip()
+    if not value:
+        raise SourceError("Aucune source renseignée.")
+
+    if source_type == "file":
+        path = resolve_upload(value)
+        cap = cv2.VideoCapture(str(path))
+        if cap is None or not cap.isOpened():
+            if cap is not None:
+                cap.release()
+            raise SourceError("Fichier illisible : codec non supporté ou fichier corrompu.")
+        try:
+            frame = _read_first_frame(cap, "Fichier")
+        except SourceError:
+            cap.release()
+            raise
+        meta = _capture_meta(cap, frame)
+        meta["looping"] = True
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        return cap, meta
+
+    if source_type == "rtsp":
+        target, backend, options = value, cv2.CAP_FFMPEG, RTSP_OPTIONS
+    elif source_type == "youtube":
+        video_id = youtube_id(value)
+        if not video_id:
+            raise SourceError("URL YouTube non reconnue.")
+        stream = _resolve_youtube_stream(f"https://www.youtube.com/watch?v={video_id}")
+        if not stream:
+            raise SourceError(
+                "Flux YouTube non résolvable : yt-dlp n'a obtenu aucune URL. "
+                "YouTube exige un runtime JavaScript (deno) sur la machine hôte."
+            )
+        target, backend, options = stream, cv2.CAP_FFMPEG, None
+    else:
+        raise SourceError(f"Type de source inconnu : {source_type}")
+
+    cap = _open_with_timeout(target, backend, ffmpeg_options=options)
+    if cap is None or not cap.isOpened():
+        if cap is not None:
+            cap.release()
+        raise SourceError("La source n'a pas pu être ouverte.")
+
+    try:
+        frame = _read_first_frame(cap, "Source")
+    except SourceError:
+        cap.release()
+        raise
+
+    meta = _capture_meta(cap, frame)
+    meta["looping"] = False
+    return cap, meta
+
+
 def test_source(source_type: str, value: str) -> dict:
     tester = TESTERS.get(source_type)
     if tester is None:

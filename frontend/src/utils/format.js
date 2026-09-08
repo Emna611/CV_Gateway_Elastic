@@ -36,4 +36,13 @@ export function hasRtspPassword(url) {
     return /^rtsp:\/\/[^:/@\s]+:[^@/\s]+@/i.test(url);
 }
 
+export function formatClock(epochSeconds) {
+    if (!epochSeconds) return '—';
+    return new Date(epochSeconds * 1000).toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    });
+}
+
 export const EMAIL_RE = /^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$/;

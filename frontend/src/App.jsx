@@ -3,6 +3,8 @@ import AppHeader from './components/AppHeader.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import ScenarioSelect from './pages/ScenarioSelect.jsx';
 import ScenarioConfig from './pages/ScenarioConfig.jsx';
+import EngineStart from './pages/EngineStart.jsx';
+import Supervision from './pages/Supervision.jsx';
 
 export default function App() {
     return (
@@ -14,6 +16,8 @@ export default function App() {
                         <Routes>
                             <Route path="/" element={<ScenarioSelect />} />
                             <Route path="/scenario/:scenarioId" element={<ScenarioConfig />} />
+                            <Route path="/engine/:scenarioId" element={<EngineStart />} />
+                            <Route path="/supervision/:scenarioId" element={<Supervision />} />
                             <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
                     </ErrorBoundary>

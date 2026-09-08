@@ -1,4 +1,4 @@
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useScenarioConfig } from '../hooks/useScenarioConfig.js';
 import { SCENARIOS } from '../data/scenarios.js';
 import SourcePanel from '../components/config/SourcePanel.jsx';
@@ -9,11 +9,6 @@ import ZonesPanel from '../components/config/ZonesPanel.jsx';
 import PreviewPanel from '../components/config/PreviewPanel.jsx';
 import { StatusBanner } from '../components/ui/controls.jsx';
 import './ScenarioConfig.css';
-
-/* Le démarrage effectif du moteur (POST /api/engine/start) est livré en
-   phase 4. D'ici là le bouton reste désactivé avec un motif explicite plutôt
-   que de déclencher un appel qui n'aboutirait pas. */
-const ENGINE_START_PENDING = 'le démarrage du moteur est livré en phase 4';
 
 export default function ScenarioConfig() {
     const { scenarioId } = useParams();
@@ -28,7 +23,9 @@ export default function ScenarioConfig() {
         testSource,
         uploadFile,
         save,
+        buildPayload,
     } = useScenarioConfig(scenarioId);
+    const navigate = useNavigate();
 
     if (!catalogue) {
         return <Navigate to="/" replace />;
@@ -61,8 +58,14 @@ export default function ScenarioConfig() {
         );
     }
 
-    const startBlockers = [...blockers, ENGINE_START_PENDING];
-    const gateMessage = `Démarrage impossible : ${startBlockers.join(' ; ')}.`;
+    const canStart = blockers.length === 0;
+    const gateMessage = canStart
+        ? ''
+        : `Démarrage impossible : ${blockers.join(' ; ')}.`;
+
+    function handleStart() {
+        navigate(`/engine/${scenarioId}`, { state: { config: buildPayload() } });
+    }
 
     return (
         <section className="config">
@@ -134,10 +137,10 @@ export default function ScenarioConfig() {
                             }
                         />
                     )}
-                    {startBlockers.length > 0 && state.save.status === 'idle' && (
+                    {blockers.length > 0 && state.save.status === 'idle' && (
                         <p className="config__blockers">
                             <span className="config__blockers-label">Il manque :</span>{' '}
-                            {startBlockers.join(' · ')}
+                            {blockers.join(' · ')}
                         </p>
                     )}
                 </div>
@@ -151,14 +154,20 @@ export default function ScenarioConfig() {
                     Enregistrer
                 </button>
 
-                <span className="config__gate" title={gateMessage}>
-                    <button type="button" className="btn btn--primary" disabled>
+                {canStart ? (
+                    <button type="button" className="btn btn--primary" onClick={handleStart}>
                         Démarrer l&apos;analyse
                     </button>
-                    <span className="config__tooltip" role="tooltip">
-                        {gateMessage}
+                ) : (
+                    <span className="config__gate" title={gateMessage}>
+                        <button type="button" className="btn btn--primary" disabled>
+                            Démarrer l&apos;analyse
+                        </button>
+                        <span className="config__tooltip" role="tooltip">
+                            {gateMessage}
+                        </span>
                     </span>
-                </span>
+                )}
             </footer>
         </section>
     );

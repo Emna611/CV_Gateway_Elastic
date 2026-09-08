@@ -73,6 +73,7 @@ def scenario_defaults(scenario_id: str) -> dict | None:
         "has_zones": bool(scenario.get("has_zones", False)),
         "models": scenario.get("models", []),
         "confidence": scenario.get("confidence", {}),
+        "inference": scenario.get("inference", {}),
         "thresholds": thresholds,
         "detections": detections,
         "default_detections": list(detections.keys()),
@@ -108,6 +109,19 @@ def active_model_names(defaults: dict, active: list) -> list:
             if name not in names:
                 names.append(name)
     return names
+
+
+def model_specs(defaults: dict, active: list) -> list:
+    """Descripteurs complets des modèles à charger, chemins résolus."""
+    names = set(active_model_names(defaults, active))
+    specs = []
+    for model in defaults["models"]:
+        if model["name"] not in names:
+            continue
+        spec = dict(model)
+        spec["resolved_path"] = (BASE_DIR / model["path"]).resolve()
+        specs.append(spec)
+    return specs
 
 
 def requires_zones(defaults: dict, active: list) -> bool:

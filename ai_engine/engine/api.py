@@ -1,10 +1,12 @@
 """Routes HTTP du moteur d'inférence."""
 
 import re
+import time
+import uuid
 
-from flask import Blueprint, jsonify, request, send_from_directory
+from flask import Blueprint, Response, jsonify, request, send_from_directory
 
-from . import mailer, settings, sources, store
+from . import mailer, runtime, settings, sources, store
 
 api = Blueprint("api", __name__, url_prefix="/api")
 
@@ -34,6 +36,7 @@ def health():
             "service": "ai_engine",
             "scenarios": settings.scenario_ids(),
             "smtp": mailer.smtp_status(),
+            "inference": runtime.warmup.state(),
         }
     )
 
@@ -144,3 +147,96 @@ def email_test():
         return _fail(str(exc), 502)
 
     return jsonify({"ok": True, "message": f"Email envoyé à {recipient}.", **result})
+
+
+# ─────────────────────────── moteur ───────────────────────────
+
+
+@api.post("/engine/start")
+def engine_start():
+    body = request.get_json(silent=True) or {}
+    scenario_id = body.get("scenario")
+    defaults = settings.scenario_defaults(scenario_id)
+    if defaults is None:
+        return _fail(f"Scénario inconnu : {scenario_id}", 404)
+
+    # Accepte le format du brief (config à la racine) comme le format
+    # encapsulé { scenario, config } du client React.
+    payload = body.get("config") if isinstance(body.get("config"), dict) else body
+
+    # La configuration repasse par la même validation que l'enregistrement :
+    # le moteur ne démarre jamais sur une configuration non vérifiée.
+    try:
+        config = store.validate(scenario_id, payload)
+    except store.ValidationError as exc:
+        return _fail(str(exc), 422)
+
+    if settings.requires_zones(defaults, config["detections"]) and not config["zones"]:
+        return _fail("Aucune zone tracée : l'occupation des postes en exige au moins une.", 422)
+
+    store.save(scenario_id, config)
+
+    try:
+        session = runtime.manager.start(uuid.uuid4().hex, scenario_id, config, defaults)
+    except runtime.EngineError as exc:
+        return _fail(str(exc), 409)
+
+    # 202 : la séquence de démarrage se poursuit, le client suit par sondage.
+    return jsonify({"ok": True, "status": session.status()}), 202
+
+
+@api.get("/engine/status")
+def engine_status():
+    session = runtime.manager.session
+    if session is None:
+        return jsonify({"ok": True, "status": {"state": "idle"}})
+    return jsonify(
+        {"ok": True, "status": session.status(), "inference": runtime.warmup.state()}
+    )
+
+
+@api.get("/engine/snapshot")
+def engine_snapshot():
+    session = runtime.manager.session
+    if session is None:
+        return jsonify({"ok": True, "status": {"state": "idle"}})
+    return jsonify({"ok": True, "status": session.snapshot()})
+
+
+@api.post("/engine/stop")
+def engine_stop():
+    session = runtime.manager.stop()
+    if session is None:
+        return jsonify({"ok": True, "status": {"state": "idle"}})
+    return jsonify({"ok": True, "status": session.status()})
+
+
+@api.get("/engine/stream")
+def engine_stream():
+    session = runtime.manager.session
+    if session is None or session.state not in ("running", "starting"):
+        return _fail("Aucune analyse en cours.", 409)
+
+    boundary = "frame"
+
+    def frames():
+        latest = None
+        while session.state in ("running", "starting"):
+            jpeg = session.wait_for_next(latest, timeout=2.0)
+            if jpeg is None:
+                time.sleep(0.05)
+                continue
+            if jpeg is latest:
+                continue
+            latest = jpeg
+            yield (
+                b"--" + boundary.encode() + b"\r\n"
+                b"Content-Type: image/jpeg\r\n"
+                b"Content-Length: " + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n"
+            )
+
+    return Response(
+        frames(),
+        mimetype=f"multipart/x-mixed-replace; boundary={boundary}",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
