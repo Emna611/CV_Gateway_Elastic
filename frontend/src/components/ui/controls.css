@@ -1,0 +1,476 @@
+/* Primitives d'interface partagées par tous les écrans de configuration. */
+
+/* ── Panneau ── */
+.panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.panel__head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 15px 18px;
+    border-bottom: 1px solid var(--border);
+}
+
+.panel__index {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-lo);
+}
+
+.panel__title {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text-hi);
+    letter-spacing: 0.01em;
+}
+
+.panel__hint {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text-lo);
+}
+
+.panel__body {
+    padding: 18px;
+}
+
+/* ── Onglets exclusifs ── */
+.tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.tabs__item {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-mid);
+    font-size: 0.79rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.tabs__item:hover:not([aria-selected='true']) {
+    color: var(--text-hi);
+}
+
+/* Sélection active : seul endroit où le bleu apparaît. */
+.tabs__item[aria-selected='true'] {
+    background: var(--bg-panel);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: var(--shadow-sm);
+}
+
+/* ── Champs ── */
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.field__label {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-mid);
+}
+
+.field__row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.text-input {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 11px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--bg-panel);
+    color: var(--text-hi);
+    font-size: 0.8rem;
+    font-family: inherit;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.text-input::placeholder {
+    color: var(--text-lo);
+}
+
+.text-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.text-input[data-invalid='true'] {
+    border-color: var(--danger);
+}
+
+.text-input--mono {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+}
+
+.field__error {
+    font-size: 0.72rem;
+    color: var(--danger);
+}
+
+.field__help {
+    font-size: 0.72rem;
+    color: var(--text-lo);
+}
+
+/* ── Boutons ── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 15px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-strong);
+    background: var(--bg-panel);
+    color: var(--text-mid);
+    font-size: 0.79rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        border-color 0.15s ease,
+        color 0.15s ease,
+        background 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.btn--primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.btn--primary:hover:not(:disabled) {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: #fff;
+}
+
+.btn--primary:disabled {
+    background: var(--bg-subtle);
+    border-color: var(--border-strong);
+    color: var(--text-lo);
+    opacity: 1;
+}
+
+.btn--ghost {
+    border-color: transparent;
+    background: transparent;
+}
+
+/* ── Interrupteur ── */
+.toggle {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    cursor: pointer;
+}
+
+.toggle__track {
+    width: 38px;
+    height: 21px;
+    border-radius: 20px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-strong);
+    padding: 2px;
+    flex-shrink: 0;
+    transition:
+        background 0.16s ease,
+        border-color 0.16s ease;
+}
+
+.toggle__knob {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.16s ease;
+}
+
+.toggle input:checked + .toggle__track {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.toggle input:checked + .toggle__track .toggle__knob {
+    transform: translateX(17px);
+}
+
+.toggle input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle input:focus-visible + .toggle__track {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.toggle__label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-hi);
+}
+
+/* ── Case à cocher ── */
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease;
+}
+
+.checkbox:hover {
+    border-color: var(--border-strong);
+}
+
+.checkbox[data-checked='true'] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.checkbox input {
+    accent-color: var(--accent);
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.checkbox__label {
+    font-family: var(--font-mono);
+    font-size: 0.73rem;
+    font-weight: 600;
+    color: var(--text-hi);
+}
+
+.checkbox:disabled,
+.checkbox[data-disabled='true'] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ── Curseur ── */
+.slider {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.slider:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.slider__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.slider__label {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--text-hi);
+}
+
+.slider__value {
+    margin-left: auto;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.slider__description {
+    font-size: 0.72rem;
+    color: var(--text-lo);
+    line-height: 1.45;
+}
+
+.slider__input {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 3px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    margin-top: 2px;
+}
+
+.slider__input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg-panel);
+    box-shadow: 0 0 0 1px var(--accent);
+    cursor: pointer;
+}
+
+.slider__input::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg-panel);
+    box-shadow: 0 0 0 1px var(--accent);
+    cursor: pointer;
+}
+
+.slider__bounds {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.67rem;
+    color: var(--text-lo);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Bandeau de statut ── */
+.status {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--bg-inset);
+    font-size: 0.77rem;
+    line-height: 1.5;
+}
+
+.status__icon {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+}
+
+.status__text {
+    min-width: 0;
+}
+
+.status__title {
+    font-weight: 600;
+    color: var(--text-hi);
+}
+
+.status__hint {
+    color: var(--text-mid);
+    font-size: 0.73rem;
+    margin-top: 2px;
+    word-break: break-word;
+}
+
+.status[data-status='idle'] {
+    color: var(--text-mid);
+}
+
+.status[data-status='pending'] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+}
+
+.status[data-status='ok'] {
+    border-color: var(--success);
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+.status[data-status='warning'] {
+    border-color: var(--warning);
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
+.status[data-status='error'] {
+    border-color: var(--danger);
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.status[data-status='ok'] .status__title,
+.status[data-status='error'] .status__title,
+.status[data-status='warning'] .status__title,
+.status[data-status='pending'] .status__title {
+    color: inherit;
+}
+
+/* ── Indicateur d'activité ── */
+.spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spinner {
+        animation-duration: 2s;
+    }
+}

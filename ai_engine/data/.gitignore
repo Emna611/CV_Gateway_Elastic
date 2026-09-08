@@ -1,0 +1,4 @@
+# Les vidéos téléversées, frames extraites et configurations enregistrées sont
+# des données locales : seul ce fichier est versionné.
+*
+!.gitignore

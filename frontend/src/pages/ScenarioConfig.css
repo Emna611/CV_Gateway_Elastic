@@ -1,70 +1,386 @@
-.scenario-config {
+.config {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 34px 28px 40px;
-    max-width: 1500px;
+    padding: 28px 28px 0;
+    max-width: 1600px;
     width: 100%;
     margin: 0 auto;
 }
 
-.scenario-config__title {
+.config--centered {
+    align-items: flex-start;
+    gap: 14px;
+    padding-top: 60px;
+    max-width: 620px;
+}
+
+.config__recover {
+    font-size: 0.8rem;
+    color: var(--text-mid);
+    line-height: 1.7;
+}
+
+.config__recover code {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 7px 10px;
+    color: var(--text-hi);
+}
+
+.config__head {
+    margin-bottom: 20px;
+}
+
+.config__title {
     font-size: 1.4rem;
     font-weight: 700;
     color: var(--text-hi);
     letter-spacing: -0.02em;
-    margin-top: 8px;
+    margin-top: 7px;
 }
 
-.scenario-config__subtitle {
+.config__subtitle {
     font-size: 0.85rem;
     color: var(--text-mid);
-    margin-top: 4px;
+    margin-top: 3px;
 }
 
-.scenario-config__placeholder {
-    margin-top: 24px;
-    background: var(--bg-panel);
-    border: 1px dashed var(--border-strong);
-    border-radius: var(--radius-lg);
-    padding: 32px;
-    color: var(--text-mid);
-    font-size: 0.85rem;
-    max-width: 760px;
+/* ── Deux colonnes : configuration 40 % / aperçu 60 % ── */
+.config__columns {
+    display: grid;
+    grid-template-columns: 40fr 60fr;
+    gap: 22px;
+    align-items: start;
 }
 
-.scenario-config__placeholder ul {
-    margin: 12px 0 0 18px;
+.config__left {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 16px;
+    min-width: 0;
 }
 
-.scenario-config__back {
-    display: inline-flex;
+.config__right {
+    position: sticky;
+    top: 20px;
+    min-width: 0;
+}
+
+/* ── Source ── */
+.source__mode {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+}
+
+.source__actions {
+    display: flex;
+    gap: 8px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+}
+
+.dropzone {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 7px;
-    margin-top: 24px;
-    padding: 9px 16px;
-    background: var(--bg-panel);
-    border: 1px solid var(--border-strong);
+    justify-content: center;
+    gap: 5px;
+    text-align: center;
+    padding: 26px 18px;
+    border: 1px dashed var(--border-strong);
     border-radius: var(--radius-md);
+    background: var(--bg-inset);
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease;
+}
+
+.dropzone:hover,
+.dropzone[data-dragging='true'] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.dropzone__title {
     font-size: 0.82rem;
     font-weight: 600;
-    color: var(--text-mid);
-    width: fit-content;
-    transition:
-        border-color 0.18s ease,
-        color 0.18s ease;
+    color: var(--text-hi);
 }
 
-.scenario-config__back:hover {
-    border-color: var(--accent);
+.dropzone__hint {
+    font-size: 0.72rem;
+    color: var(--text-lo);
+}
+
+.upload-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.upload-progress__bar {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--bg-subtle);
+    overflow: hidden;
+}
+
+.upload-progress__bar span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.2s ease;
+}
+
+.upload-progress__value {
+    font-size: 0.73rem;
+    font-weight: 600;
     color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ── Listes de métadonnées ── */
+.meta-list,
+.summary__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.meta-list > div,
+.summary__grid > div {
+    background: var(--bg-panel);
+    padding: 9px 12px;
+    min-width: 0;
+}
+
+.meta-list dt,
+.summary__grid dt {
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-lo);
+}
+
+.meta-list dd,
+.summary__grid dd {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-hi);
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.meta-list__mono,
+.summary__mono {
+    font-family: var(--font-mono);
+    font-size: 0.73rem !important;
+    font-weight: 500 !important;
+}
+
+.summary__wide {
+    grid-column: 1 / -1;
+}
+
+.summary__models {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    white-space: normal;
+}
+
+/* ── Seuils ── */
+.thresholds__confidence {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+/* ── Email ── */
+.email__body {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.email__types {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    gap: 6px;
+}
+
+/* ── Aperçu ── */
+.preview {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.preview__stage {
+    position: relative;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview__image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    background: #000;
+}
+
+.preview__badge {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    padding: 4px 9px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid var(--border);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-mid);
+}
+
+.preview__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    padding: 24px;
+    max-width: 380px;
+}
+
+.preview__empty-title {
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--text-mid);
+}
+
+.preview__empty-hint {
+    font-size: 0.76rem;
+    color: var(--text-lo);
+    line-height: 1.6;
+}
+
+.summary {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+/* ── Pied de page ── */
+.config__footer {
+    position: sticky;
+    bottom: 0;
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    background: linear-gradient(to bottom, rgba(244, 247, 251, 0.6), var(--bg-deep) 40%);
+    border-top: 1px solid var(--border);
+}
+
+.config__footer-status {
+    flex: 1;
+    min-width: 0;
+}
+
+.config__blockers {
+    font-size: 0.74rem;
+    color: var(--text-lo);
+    line-height: 1.5;
+}
+
+.config__blockers-label {
+    font-weight: 700;
+    color: var(--text-mid);
+}
+
+/* Le motif de blocage apparaît au survol du bouton désactivé, qui ne reçoit
+   pas d'événements : le conteneur porte donc l'infobulle. */
+.config__gate {
+    position: relative;
+    display: inline-flex;
+}
+
+.config__tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    width: max-content;
+    max-width: 320px;
+    padding: 8px 11px;
+    border-radius: var(--radius-md);
+    background: var(--text-hi);
+    color: #fff;
+    font-size: 0.73rem;
+    line-height: 1.5;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(3px);
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease,
+        visibility 0.15s;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.config__gate:hover .config__tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
 }
 
 @media (max-width: 1100px) {
-    .scenario-config {
-        padding: 22px 16px 32px;
+    .config {
+        padding: 22px 16px 0;
+    }
+
+    .config__columns {
+        grid-template-columns: 1fr;
+    }
+
+    .config__right {
+        position: static;
+    }
+
+    .config__footer {
+        flex-wrap: wrap;
+    }
+
+    .config__footer-status {
+        order: 3;
+        flex-basis: 100%;
     }
 }

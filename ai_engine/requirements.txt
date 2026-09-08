@@ -1,0 +1,10 @@
+flask>=3.1
+opencv-python>=4.10
+pyyaml>=6.0
+requests>=2.32
+yt-dlp>=2024.1
+
+# Requis à partir de la phase 4 (chargement effectif des modèles)
+ultralytics>=8.4
+torch>=2.6
+torchvision>=0.21

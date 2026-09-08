@@ -1,0 +1,145 @@
+# CV-Gateway Elastic — configuration du moteur d'inférence.
+#
+# Ce fichier est la source unique de vérité des valeurs par défaut exposées
+# par l'API (GET /api/config/defaults/<scenario>). Le frontend ne code aucun
+# seuil en dur : il affiche ce qui est déclaré ici.
+#
+# Les valeurs par défaut reprennent celles éprouvées dans les prototypes :
+#   - bureau  : Office_Monitoring_v2/sleep_detector.py et main.py
+#   - cuisine : PPE_Restaurant/config.py
+
+version: 1
+
+engine:
+  host: "127.0.0.1"
+  port: 5000
+  data_dir: "data"
+  frames_dir: "data/frames"
+  configs_dir: "data/configs"
+
+source:
+  allowed_extensions: [".mp4", ".avi", ".mov"]
+  max_upload_mb: 1024
+  # Délai maximal accordé à l'ouverture d'un flux avant de déclarer l'échec.
+  open_timeout_seconds: 12
+  rtsp_transport: "tcp"
+
+email:
+  cooldown_minutes:
+    label: "Délai minimum entre deux emails"
+    default: 5
+    min: 1
+    max: 120
+    step: 1
+
+scenarios:
+  bureau:
+    label: "Environnement Bureau"
+    has_zones: true
+
+    models:
+      - name: "yolo11m-pose.pt"
+        role: "Estimation de pose"
+        path: "../Office_Monitoring_v2/Sleeping/yolo11m-pose.pt"
+      - name: "phone_model.pt"
+        role: "Détection de téléphone"
+        path: "../Office_Monitoring_v2/phone_model.pt"
+
+    confidence:
+      label: "Confiance du modèle"
+      default: 0.15
+      min: 0.05
+      max: 0.95
+      step: 0.05
+
+    thresholds:
+      zone_occupied:
+        label: "ZONE_OCCUPIED"
+        description: "Présence continue avant de valider l'occupation d'un poste"
+        severity: "info"
+        default: 3
+        min: 1
+        max: 60
+        step: 1
+      idle:
+        label: "ACTIVE / IDLE"
+        description: "Immobilité continue avant de basculer le poste en IDLE"
+        severity: "info"
+        default: 60
+        min: 10
+        max: 600
+        step: 10
+      fatigue:
+        label: "FATIGUE"
+        description: "Posture affaissée maintenue avant de confirmer la fatigue"
+        severity: "high"
+        default: 30
+        min: 5
+        max: 300
+        step: 5
+      sleeping:
+        label: "SLEEPING"
+        description: "Immobilité tête baissée avant de confirmer l'endormissement"
+        severity: "critical"
+        default: 300
+        min: 30
+        max: 1800
+        step: 30
+      on_phone:
+        label: "ON_PHONE"
+        description: "Téléphone détecté au poste avant de lever l'alerte"
+        severity: "moderate"
+        default: 5
+        min: 1
+        max: 120
+        step: 1
+
+  cuisine:
+    label: "Environnement Cuisine"
+    has_zones: false
+
+    models:
+      - name: "bestfinal.pt"
+        role: "Détection des EPI"
+        path: "../PPE_Restaurant/bestfinal.pt"
+
+    confidence:
+      label: "Confiance du modèle"
+      default: 0.15
+      min: 0.05
+      max: 0.95
+      step: 0.05
+
+    thresholds:
+      no_glove:
+        label: "NO_GLOVE"
+        description: "Absence de gants maintenue avant de lever l'alerte"
+        severity: "critical"
+        default: 5
+        min: 1
+        max: 120
+        step: 1
+      no_hairnet:
+        label: "NO_HAIRNET"
+        description: "Absence de charlotte maintenue avant de lever l'alerte"
+        severity: "critical"
+        default: 5
+        min: 1
+        max: 120
+        step: 1
+      no_apron:
+        label: "NO_APRON"
+        description: "Absence de tablier maintenue avant de lever l'alerte"
+        severity: "high"
+        default: 8
+        min: 1
+        max: 120
+        step: 1
+      ppe_compliant:
+        label: "PPE_COMPLIANT"
+        description: "Fenêtre de confirmation de la conformité totale 3/3"
+        severity: "compliant"
+        default: 5
+        min: 1
+        max: 60
+        step: 1
