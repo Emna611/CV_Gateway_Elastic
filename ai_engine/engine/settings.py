@@ -59,6 +59,7 @@ def scenario_defaults(scenario_id: str) -> dict | None:
         return None
 
     thresholds = scenario.get("thresholds", {})
+    detections = scenario.get("detections", {})
 
     # « Par défaut : uniquement les critiques » — la sélection email initiale est
     # déduite des sévérités déclarées, pas recopiée à la main dans le frontend.
@@ -73,6 +74,8 @@ def scenario_defaults(scenario_id: str) -> dict | None:
         "models": scenario.get("models", []),
         "confidence": scenario.get("confidence", {}),
         "thresholds": thresholds,
+        "detections": detections,
+        "default_detections": list(detections.keys()),
         "email": {
             "cooldown_minutes": CONFIG.get("email", {}).get("cooldown_minutes", {}),
             "default_types": critical_types,
@@ -82,3 +85,34 @@ def scenario_defaults(scenario_id: str) -> dict | None:
             "max_upload_mb": int(SOURCE.get("max_upload_mb", 1024)),
         },
     }
+
+
+def active_threshold_keys(defaults: dict, active: list) -> list:
+    """Seuils réellement gouvernés par les classes activées."""
+    keys = []
+    for detection_id in active:
+        for key in defaults["detections"].get(detection_id, {}).get("thresholds", []):
+            if key in defaults["thresholds"] and key not in keys:
+                keys.append(key)
+    return keys
+
+
+def active_model_names(defaults: dict, active: list) -> list:
+    """Modèles à charger : union des exigences des classes activées.
+
+    Désactiver la détection du téléphone évite ainsi de charger phone_model.pt.
+    """
+    names = []
+    for detection_id in active:
+        for name in defaults["detections"].get(detection_id, {}).get("models", []):
+            if name not in names:
+                names.append(name)
+    return names
+
+
+def requires_zones(defaults: dict, active: list) -> bool:
+    """Le traçage de zones n'est exigé que si une classe active en dépend."""
+    return any(
+        defaults["detections"].get(detection_id, {}).get("requires_zones")
+        for detection_id in active
+    )

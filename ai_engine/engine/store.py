@@ -99,6 +99,36 @@ def validate(scenario_id: str, payload: dict) -> dict:
     if not source_value:
         raise ValidationError("source.value est vide.")
 
+    # ── classes détectées ──
+    declared = defaults["detections"]
+    raw_detections = payload.get("detections", defaults["default_detections"])
+    if not isinstance(raw_detections, list):
+        raise ValidationError("detections : liste attendue.")
+
+    unknown_detections = set(raw_detections) - set(declared)
+    if unknown_detections:
+        raise ValidationError(
+            f"Classes inconnues pour {scenario_id} : {', '.join(sorted(unknown_detections))}"
+        )
+    # Ordre du YAML conservé, doublons écartés.
+    detections = [key for key in declared if key in set(raw_detections)]
+    if not detections:
+        raise ValidationError("Activez au moins une classe à détecter.")
+
+    for detection_id in detections:
+        missing = [
+            required
+            for required in declared[detection_id].get("requires", [])
+            if required not in detections
+        ]
+        if missing:
+            labels = ", ".join(declared[required]["label"] for required in missing)
+            raise ValidationError(
+                f"« {declared[detection_id]['label']} » exige aussi : {labels}."
+            )
+
+    active_thresholds = settings.active_threshold_keys(defaults, detections)
+
     # ── seuils ──
     specs = defaults["thresholds"]
     raw_thresholds = payload.get("thresholds") or {}
@@ -129,13 +159,28 @@ def validate(scenario_id: str, payload: dict) -> dict:
     if enabled and not EMAIL_RE.match(recipient):
         raise ValidationError("email.recipient : adresse invalide.")
 
-    types = raw_email.get("types", defaults["email"]["default_types"])
+    # Sélection par défaut restreinte aux classes actives : sans cela, activer
+    # « téléphone » seul refuserait la configuration à cause du défaut SLEEPING.
+    raw_types = raw_email.get("types")
+    types = (
+        [key for key in defaults["email"]["default_types"] if key in active_thresholds]
+        if raw_types is None
+        else raw_types
+    )
     if not isinstance(types, list):
         raise ValidationError("email.types : liste attendue.")
     unknown_types = set(types) - set(specs)
     if unknown_types:
         raise ValidationError(
             f"email.types contient des événements inconnus : {', '.join(sorted(unknown_types))}"
+        )
+    # Un événement dont la classe est désactivée ne sera jamais produit :
+    # l'accepter reviendrait à promettre un email impossible.
+    inactive_types = [key for key in types if key not in active_thresholds]
+    if inactive_types:
+        labels = ", ".join(specs[key]["label"] for key in inactive_types)
+        raise ValidationError(
+            f"email.types porte sur des classes désactivées : {labels}."
         )
     if enabled and not types:
         raise ValidationError("email.types : sélectionnez au moins un type d'événement.")
@@ -154,6 +199,9 @@ def validate(scenario_id: str, payload: dict) -> dict:
     return {
         "scenario": scenario_id,
         "source": {"type": source_type, "value": source_value},
+        "detections": detections,
+        "models": settings.active_model_names(defaults, detections),
+        "requires_zones": settings.requires_zones(defaults, detections),
         "zones": zones,
         "thresholds": thresholds,
         "confidence": confidence,

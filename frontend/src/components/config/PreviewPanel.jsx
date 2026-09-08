@@ -2,8 +2,8 @@ import { formatDuration, formatResolution } from '../../utils/format.js';
 
 const SOURCE_LABELS = { file: 'Fichier local', youtube: 'YouTube', rtsp: 'Flux RTSP' };
 
-export default function PreviewPanel({ state, sourceValue }) {
-    const { test, defaults, email, zones, sourceType } = state;
+export default function PreviewPanel({ state, derived, sourceValue }) {
+    const { test, defaults, email, zones, detections, sourceType } = state;
     const preview = test.preview;
 
     return (
@@ -66,7 +66,9 @@ export default function PreviewPanel({ state, sourceValue }) {
                     {defaults.has_zones && (
                         <div>
                             <dt>Zones tracées</dt>
-                            <dd>{zones.length}</dd>
+                            <dd>
+                                {derived.zonesRequired ? zones.length : 'non requises'}
+                            </dd>
                         </div>
                     )}
                     <div>
@@ -78,13 +80,34 @@ export default function PreviewPanel({ state, sourceValue }) {
                         </dd>
                     </div>
                     <div className="summary__wide">
+                        <dt>
+                            Classes détectées ({detections.length} /{' '}
+                            {Object.keys(defaults.detections).length})
+                        </dt>
+                        <dd className="summary__classes">
+                            {detections.length === 0
+                                ? 'aucune'
+                                : detections
+                                      .map((id) => defaults.detections[id].label)
+                                      .join(' · ')}
+                        </dd>
+                    </div>
+                    <div className="summary__wide">
                         <dt>Modèles qui seront chargés</dt>
                         <dd className="summary__models">
-                            {defaults.models.map((model) => (
-                                <span key={model.name} className="model-badge" title={model.role}>
-                                    {model.name}
-                                </span>
-                            ))}
+                            {derived.models.length === 0 ? (
+                                'aucun'
+                            ) : (
+                                derived.models.map((model) => (
+                                    <span
+                                        key={model.name}
+                                        className="model-badge"
+                                        title={model.role}
+                                    >
+                                        {model.name}
+                                    </span>
+                                ))
+                            )}
                         </dd>
                     </div>
                 </dl>

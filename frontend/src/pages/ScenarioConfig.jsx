@@ -2,6 +2,7 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { useScenarioConfig } from '../hooks/useScenarioConfig.js';
 import { SCENARIOS } from '../data/scenarios.js';
 import SourcePanel from '../components/config/SourcePanel.jsx';
+import DetectionsPanel from '../components/config/DetectionsPanel.jsx';
 import ThresholdsPanel from '../components/config/ThresholdsPanel.jsx';
 import EmailPanel from '../components/config/EmailPanel.jsx';
 import ZonesPanel from '../components/config/ZonesPanel.jsx';
@@ -17,8 +18,17 @@ const ENGINE_START_PENDING = 'le démarrage du moteur est livré en phase 4';
 export default function ScenarioConfig() {
     const { scenarioId } = useParams();
     const catalogue = SCENARIOS[scenarioId];
-    const { state, sourceValue, blockers, canSave, dispatch, testSource, uploadFile, save } =
-        useScenarioConfig(scenarioId);
+    const {
+        state,
+        derived,
+        sourceValue,
+        blockers,
+        canSave,
+        dispatch,
+        testSource,
+        uploadFile,
+        save,
+    } = useScenarioConfig(scenarioId);
 
     if (!catalogue) {
         return <Navigate to="/" replace />;
@@ -73,13 +83,29 @@ export default function ScenarioConfig() {
                         onTest={testSource}
                         onUpload={uploadFile}
                     />
-                    <ThresholdsPanel state={state} dispatch={dispatch} />
-                    <EmailPanel scenarioId={scenarioId} state={state} dispatch={dispatch} />
-                    {state.defaults.has_zones && <ZonesPanel zones={state.zones} />}
+                    <DetectionsPanel state={state} dispatch={dispatch} />
+                    <ThresholdsPanel
+                        state={state}
+                        dispatch={dispatch}
+                        thresholdKeys={derived.thresholdKeys}
+                    />
+                    <EmailPanel
+                        scenarioId={scenarioId}
+                        state={state}
+                        dispatch={dispatch}
+                        thresholdKeys={derived.thresholdKeys}
+                    />
+                    {state.defaults.has_zones && (
+                        <ZonesPanel zones={state.zones} required={derived.zonesRequired} />
+                    )}
                 </div>
 
                 <aside className="config__right">
-                    <PreviewPanel state={state} sourceValue={sourceValue} />
+                    <PreviewPanel
+                        state={state}
+                        derived={derived}
+                        sourceValue={sourceValue}
+                    />
                 </aside>
             </div>
 

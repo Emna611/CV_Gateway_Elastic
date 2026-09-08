@@ -3,7 +3,7 @@ import { Checkbox, Panel, Slider, StatusBanner, Toggle } from '../ui/controls.js
 import { testEmail } from '../../api/client.js';
 import { EMAIL_RE, formatSeconds } from '../../utils/format.js';
 
-export default function EmailPanel({ scenarioId, state, dispatch }) {
+export default function EmailPanel({ scenarioId, state, dispatch, thresholdKeys }) {
     const { defaults, email } = state;
     const [sending, setSending] = useState(false);
     const [result, setResult] = useState(null);
@@ -39,7 +39,7 @@ export default function EmailPanel({ scenarioId, state, dispatch }) {
     }
 
     return (
-        <Panel index="2.3" title="Alertes email">
+        <Panel index="2.4" title="Alertes email">
             <Toggle
                 id="email-enabled"
                 checked={email.enabled}
@@ -72,17 +72,18 @@ export default function EmailPanel({ scenarioId, state, dispatch }) {
                             Événements qui déclenchent un email
                         </span>
                         <div className="email__types">
-                            {Object.entries(defaults.thresholds).map(([key, spec]) => (
+                            {thresholdKeys.map((key) => (
                                 <Checkbox
                                     key={key}
-                                    label={spec.label}
+                                    label={defaults.thresholds[key].label}
                                     checked={email.types.includes(key)}
                                     onChange={(checked) => toggleType(key, checked)}
                                 />
                             ))}
                         </div>
                         <p className="field__help">
-                            Par défaut, seuls les événements critiques sont notifiés.
+                            Par défaut, seuls les événements critiques sont notifiés. Seuls les
+                            événements des classes actives sont proposés.
                         </p>
                     </div>
 

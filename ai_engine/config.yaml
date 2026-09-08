@@ -45,6 +45,29 @@ scenarios:
         role: "Détection de téléphone"
         path: "../Office_Monitoring_v2/phone_model.pt"
 
+    # Classes activables indépendamment. Chaque détection déclare les seuils
+    # qu'elle gouverne et les modèles qu'elle exige : le moteur ne charge que
+    # les poids réellement nécessaires, et le frontend n'affiche que les seuils
+    # des classes actives. Combinaisons libres (une, deux ou toutes), au moins
+    # une obligatoire.
+    detections:
+      zone:
+        label: "Occupation des postes"
+        description: "Présence, durée d'occupation et qualification ACTIVE / IDLE"
+        thresholds: ["zone_occupied", "idle"]
+        models: ["yolo11m-pose.pt"]
+        requires_zones: true
+      vigilance:
+        label: "Vigilance"
+        description: "Fatigue et endormissement par estimation de pose"
+        thresholds: ["fatigue", "sleeping"]
+        models: ["yolo11m-pose.pt"]
+      phone:
+        label: "Usage du téléphone"
+        description: "Téléphone détecté au poste, attribué à la personne suivie"
+        thresholds: ["on_phone"]
+        models: ["yolo11m-pose.pt", "phone_model.pt"]
+
     confidence:
       label: "Confiance du modèle"
       default: 0.15
@@ -102,6 +125,29 @@ scenarios:
       - name: "bestfinal.pt"
         role: "Détection des EPI"
         path: "../PPE_Restaurant/bestfinal.pt"
+
+    detections:
+      glove:
+        label: "Gants"
+        description: "GLOVE / NO_GLOVE"
+        thresholds: ["no_glove"]
+        models: ["bestfinal.pt"]
+      hairnet:
+        label: "Charlotte"
+        description: "HAIRNET / NO_HAIRNET"
+        thresholds: ["no_hairnet"]
+        models: ["bestfinal.pt"]
+      apron:
+        label: "Tablier"
+        description: "APRON / NO_APRON"
+        thresholds: ["no_apron"]
+        models: ["bestfinal.pt"]
+      compliance:
+        label: "Conformité totale 3/3"
+        description: "Exige les trois équipements : PPE_COMPLIANT n'a pas de sens sans eux"
+        thresholds: ["ppe_compliant"]
+        models: ["bestfinal.pt"]
+        requires: ["glove", "hairnet", "apron"]
 
     confidence:
       label: "Confiance du modèle"

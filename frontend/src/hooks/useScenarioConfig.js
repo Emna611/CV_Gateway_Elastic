@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer } from 'react';
 import * as api from '../api/client.js';
 import { EMAIL_RE } from '../utils/format.js';
+import { activeModels, activeThresholdKeys, requiresZones } from '../utils/detections.js';
 
 const IDLE_TEST = {
     status: 'idle',
@@ -19,6 +20,7 @@ const initialState = {
     youtube: { url: '' },
     rtsp: { url: '' },
     test: IDLE_TEST,
+    detections: [],
     thresholds: {},
     confidence: 0.15,
     email: { enabled: false, recipient: '', types: [], cooldownMinutes: 5 },
@@ -37,11 +39,14 @@ function reducer(state, action) {
 
             const sourceType = saved?.source?.type ?? 'file';
             const savedValue = saved?.source?.value ?? '';
+            const detections = saved?.detections ?? defaults.default_detections;
+            const selectableTypes = activeThresholdKeys(defaults, detections);
 
             return {
                 ...state,
                 phase: 'ready',
                 defaults,
+                detections,
                 thresholds,
                 confidence: saved?.confidence ?? defaults.confidence.default,
                 sourceType,
@@ -55,7 +60,9 @@ function reducer(state, action) {
                 email: {
                     enabled: saved?.email?.enabled ?? false,
                     recipient: saved?.email?.recipient ?? '',
-                    types: saved?.email?.types ?? defaults.email.default_types,
+                    types: (saved?.email?.types ?? defaults.email.default_types).filter(
+                        (key) => selectableTypes.includes(key)
+                    ),
                     cooldownMinutes:
                         saved?.email?.cooldown_minutes ??
                         defaults.email.cooldown_minutes.default,
@@ -128,6 +135,22 @@ function reducer(state, action) {
                 },
             };
 
+        /* Désactiver une classe retire aussi ses événements de la sélection
+           email : promettre un email pour un événement qui ne sera jamais
+           produit serait mensonger. */
+        case 'detections': {
+            const selectable = activeThresholdKeys(state.defaults, action.value);
+            return {
+                ...state,
+                detections: action.value,
+                email: {
+                    ...state.email,
+                    types: state.email.types.filter((key) => selectable.includes(key)),
+                },
+                save: { status: 'idle', message: '' },
+            };
+        }
+
         case 'threshold':
             return {
                 ...state,
@@ -195,6 +218,19 @@ export function useScenarioConfig(scenarioId) {
         };
     }, [scenarioId]);
 
+    /* Conséquences des classes actives : seuils affichés, modèles réellement
+       chargés, nécessité de tracer des zones. */
+    const derived = useMemo(() => {
+        if (!state.defaults) {
+            return { thresholdKeys: [], models: [], zonesRequired: false };
+        }
+        return {
+            thresholdKeys: activeThresholdKeys(state.defaults, state.detections),
+            models: activeModels(state.defaults, state.detections),
+            zonesRequired: requiresZones(state.defaults, state.detections),
+        };
+    }, [state.defaults, state.detections]);
+
     const sourceValue = useMemo(() => {
         if (state.sourceType === 'file') return state.file.value;
         if (state.sourceType === 'youtube') return state.youtube.url.trim();
@@ -229,6 +265,7 @@ export function useScenarioConfig(scenarioId) {
         () => ({
             scenario: scenarioId,
             source: { type: state.sourceType, value: sourceValue },
+            detections: state.detections,
             zones: state.zones,
             thresholds: state.thresholds,
             confidence: state.confidence,
@@ -239,7 +276,16 @@ export function useScenarioConfig(scenarioId) {
                 cooldown_minutes: state.email.cooldownMinutes,
             },
         }),
-        [scenarioId, state.sourceType, sourceValue, state.zones, state.thresholds, state.confidence, state.email]
+        [
+            scenarioId,
+            state.sourceType,
+            sourceValue,
+            state.detections,
+            state.zones,
+            state.thresholds,
+            state.confidence,
+            state.email,
+        ]
     );
 
     const save = useCallback(async () => {
@@ -258,7 +304,10 @@ export function useScenarioConfig(scenarioId) {
         if (state.test.status !== 'ok' && state.test.status !== 'warning') {
             list.push("la source n'a pas été testée avec succès");
         }
-        if (state.defaults?.has_zones && state.zones.length === 0) {
+        if (state.detections.length === 0) {
+            list.push('aucune classe à détecter n\u2019est activée');
+        }
+        if (derived.zonesRequired && state.zones.length === 0) {
             list.push('aucune zone de poste n\u2019est tracée');
         }
         if (state.email.enabled && !EMAIL_RE.test(state.email.recipient.trim())) {
@@ -268,10 +317,17 @@ export function useScenarioConfig(scenarioId) {
             list.push('aucun type d\u2019événement ne déclenche d\u2019email');
         }
         return list;
-    }, [state.test.status, state.defaults, state.zones.length, state.email]);
+    }, [
+        state.test.status,
+        state.detections.length,
+        derived.zonesRequired,
+        state.zones.length,
+        state.email,
+    ]);
 
     return {
         state,
+        derived,
         sourceValue,
         blockers,
         canSave: Boolean(sourceValue) && state.phase === 'ready',
