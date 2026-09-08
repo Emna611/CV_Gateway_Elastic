@@ -1,0 +1,70 @@
+.scenario-config {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 34px 28px 40px;
+    max-width: 1500px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.scenario-config__title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-hi);
+    letter-spacing: -0.02em;
+    margin-top: 8px;
+}
+
+.scenario-config__subtitle {
+    font-size: 0.85rem;
+    color: var(--text-mid);
+    margin-top: 4px;
+}
+
+.scenario-config__placeholder {
+    margin-top: 24px;
+    background: var(--bg-panel);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    color: var(--text-mid);
+    font-size: 0.85rem;
+    max-width: 760px;
+}
+
+.scenario-config__placeholder ul {
+    margin: 12px 0 0 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.scenario-config__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 24px;
+    padding: 9px 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-mid);
+    width: fit-content;
+    transition:
+        border-color 0.18s ease,
+        color 0.18s ease;
+}
+
+.scenario-config__back:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+@media (max-width: 1100px) {
+    .scenario-config {
+        padding: 22px 16px 32px;
+    }
+}

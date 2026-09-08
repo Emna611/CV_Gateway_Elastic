@@ -1,0 +1,51 @@
+/* CV-Gateway Elastic — jetons de design (thème clair blanc & bleu).
+   Règle: le bleu d'accent signale UNIQUEMENT la sélection active ou le focus,
+   jamais de la décoration. */
+
+:root {
+    /* Surfaces */
+    --bg-deep: #F4F7FB;
+    --bg-panel: #FFFFFF;
+    --bg-subtle: #EDF1F7;
+    --bg-inset: #F8FAFC;
+
+    /* Bordures */
+    --border: #DCE3ED;
+    --border-strong: #C3CEDD;
+
+    /* Accent — sélection active uniquement */
+    --accent: #2563EB;
+    --accent-strong: #1D4ED8;
+    --accent-soft: #EAF0FE;
+
+    /* Sévérités */
+    --success: #0E9F6E;
+    --success-soft: #E6F6F0;
+    --warning: #D97706;
+    --warning-soft: #FDF3E4;
+    --high: #EA580C;
+    --high-soft: #FEF0E7;
+    --danger: #DC2626;
+    --danger-soft: #FCEBEB;
+    --info: #64748B;
+    --info-soft: #EEF1F5;
+
+    /* Texte */
+    --text-hi: #0F172A;
+    --text-mid: #475569;
+    --text-lo: #8A98AB;
+
+    /* Élévation */
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.07);
+    --shadow-lg: 0 12px 32px rgba(37, 99, 235, 0.13);
+
+    /* Rythme */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        Helvetica, Arial, sans-serif;
+    --font-mono: 'SFMono-Regular', 'JetBrains Mono', Consolas, monospace;
+}
