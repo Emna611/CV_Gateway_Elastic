@@ -96,7 +96,15 @@ export default function ScenarioConfig() {
                         thresholdKeys={derived.thresholdKeys}
                     />
                     {state.defaults.has_zones && (
-                        <ZonesPanel zones={state.zones} required={derived.zonesRequired} />
+                        <ZonesPanel
+                            zones={state.zones}
+                            required={derived.zonesRequired}
+                            editing={state.zonesEditing}
+                            hasFrame={Boolean(state.test.preview?.url)}
+                            onToggleEditing={(value) =>
+                                dispatch({ type: 'zonesEditing', value })
+                            }
+                        />
                     )}
                 </div>
 
@@ -105,6 +113,7 @@ export default function ScenarioConfig() {
                         state={state}
                         derived={derived}
                         sourceValue={sourceValue}
+                        onZonesChange={(zones) => dispatch({ type: 'zones', zones })}
                     />
                 </aside>
             </div>

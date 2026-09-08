@@ -1,9 +1,9 @@
 import { Panel, StatusBanner } from '../ui/controls.jsx';
 
-/* Section réservée au scénario bureau. L'éditeur de polygones lui-même est
-   livré en phase 3 ; ce panneau expose déjà l'état réel du traçage pour que le
-   pied de page puisse bloquer le démarrage en connaissance de cause. */
-export default function ZonesPanel({ zones, required }) {
+/* Section réservée au scénario bureau. L'éditeur lui-même est superposé à la
+   frame dans la colonne d'aperçu : c'est le seul endroit où le tracé a un
+   sens. Ce panneau commande le mode et rend compte de l'état réel. */
+export default function ZonesPanel({ zones, required, editing, hasFrame, onToggleEditing }) {
     const count = zones.length;
     const plural = count > 1 ? 's' : '';
 
@@ -22,10 +22,33 @@ export default function ZonesPanel({ zones, required }) {
     return (
         <Panel index="2.5" title="Traçage de zones" hint="Requis par l'occupation des postes">
             <StatusBanner
-                status={count > 0 ? 'ok' : 'idle'}
-                title={count > 0 ? `${count} zone${plural} tracée${plural}` : 'Aucune zone tracée'}
-                hint="L'éditeur de polygones superposé à la première frame est livré en phase 3. Les coordonnées seront stockées normalisées entre 0 et 1."
+                status={count > 0 ? 'ok' : hasFrame ? 'idle' : 'error'}
+                title={
+                    count > 0
+                        ? `${count} poste${plural} délimité${plural}`
+                        : hasFrame
+                          ? 'Aucune zone tracée'
+                          : 'Aucune frame sur laquelle tracer'
+                }
+                hint={
+                    hasFrame
+                        ? "L'éditeur est superposé à l'aperçu, à droite. Les coordonnées sont enregistrées normalisées entre 0 et 1."
+                        : 'Testez la source ci-dessus : le traçage exige la première frame de la vidéo.'
+                }
             />
+
+            <div className="source__actions">
+                <button
+                    type="button"
+                    className={editing ? 'btn btn--primary' : 'btn'}
+                    // Reste actionnable si la frame disparaît en cours de
+                    // traçage, sinon le mode serait impossible à quitter.
+                    disabled={!hasFrame && !editing}
+                    onClick={() => onToggleEditing(!editing)}
+                >
+                    {editing ? 'Terminer le traçage' : 'Tracer des zones'}
+                </button>
+            </div>
         </Panel>
     );
 }

@@ -25,6 +25,7 @@ const initialState = {
     confidence: 0.15,
     email: { enabled: false, recipient: '', types: [], cooldownMinutes: 5 },
     zones: [],
+    zonesEditing: false,
     save: { status: 'idle', message: '' },
 };
 
@@ -182,7 +183,10 @@ function reducer(state, action) {
             };
 
         case 'zones':
-            return { ...state, zones: action.zones };
+            return { ...state, zones: action.zones, save: { status: 'idle', message: '' } };
+
+        case 'zonesEditing':
+            return { ...state, zonesEditing: action.value };
 
         case 'saveStart':
             return { ...state, save: { status: 'pending', message: '' } };
