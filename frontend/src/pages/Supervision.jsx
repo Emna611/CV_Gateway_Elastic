@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import * as api from '../api/client.js';
+import { Tabs } from '../components/ui/controls.jsx';
 import { SCENARIOS, SEVERITY_LABELS } from '../data/scenarios.js';
 import { formatClock, formatDuration } from '../utils/format.js';
 import './Supervision.css';
@@ -33,6 +34,11 @@ export default function Supervision() {
     const [loadError, setLoadError] = useState(null);
     const [stopping, setStopping] = useState(false);
     const [brokenStream, setBrokenStream] = useState('');
+    const [exporting, setExporting] = useState(null);
+    const [exportError, setExportError] = useState(null);
+    const [period, setPeriod] = useState('today');
+    const [customFrom, setCustomFrom] = useState(() => startOfTodayInput());
+    const [customTo, setCustomTo] = useState(() => nowInput());
 
     useEffect(() => {
         let cancelled = false;
@@ -84,6 +90,41 @@ export default function Supervision() {
             ? `${api.ENGINE_STREAM_URL}?session=${status.session_id}`
             : null;
     const streamBroken = Boolean(streamUrl) && brokenStream === streamUrl;
+    const sessionId = status.session_id;
+
+    const periodOptions = useMemo(() => {
+        const options = [
+            { id: 'today', label: "Aujourd'hui" },
+            { id: '7d', label: '7 jours' },
+            { id: 'custom', label: 'Période' },
+        ];
+        if (sessionId) {
+            options.unshift({ id: 'session', label: 'Cette session' });
+        }
+        return options;
+    }, [sessionId]);
+
+    async function handleExport(kind) {
+        setExporting(kind);
+        setExportError(null);
+        try {
+            const params = buildExportParams({
+                period: sessionId ? period : period === 'session' ? 'today' : period,
+                scenarioId,
+                sessionId,
+                customFrom,
+                customTo,
+            });
+            if (kind === 'alerts' && !params.from) {
+                throw new Error('Choisissez une période pour exporter les alertes.');
+            }
+            await api.downloadExport(kind === 'occupation' ? 'occupation' : 'alerts', params);
+        } catch (error) {
+            setExportError(error.message);
+        } finally {
+            setExporting(null);
+        }
+    }
 
     return (
         <section className="watch">
@@ -237,12 +278,26 @@ export default function Supervision() {
             )}
 
             <footer className="watch__foot">
-                <button type="button" className="btn" onClick={() => navigate(`/scenario/${scenarioId}`)}>
-                    Configuration
-                </button>
-                <Link to="/" className="btn btn--ghost">
-                    Changer de scénario
-                </Link>
+                <ExportBar
+                    period={sessionId ? period : period === 'session' ? 'today' : period}
+                    options={periodOptions}
+                    onPeriod={setPeriod}
+                    customFrom={customFrom}
+                    customTo={customTo}
+                    onFrom={setCustomFrom}
+                    onTo={setCustomTo}
+                    exporting={exporting}
+                    error={exportError}
+                    onExport={handleExport}
+                />
+                <div className="watch__foot-nav">
+                    <button type="button" className="btn" onClick={() => navigate(`/scenario/${scenarioId}`)}>
+                        Configuration
+                    </button>
+                    <Link to="/" className="btn btn--ghost">
+                        Changer de scénario
+                    </Link>
+                </div>
             </footer>
         </section>
     );
@@ -376,5 +431,119 @@ function KitchenPanel({ stats }) {
                 </article>
             ))}
         </section>
+    );
+}
+
+function pad(value) {
+    return String(value).padStart(2, '0');
+}
+
+function toInputValue(date) {
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function startOfTodayInput() {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    return toInputValue(date);
+}
+
+function nowInput() {
+    return toInputValue(new Date());
+}
+
+function buildExportParams({ period, scenarioId, sessionId, customFrom, customTo }) {
+    const now = new Date();
+    const params = { scenario: scenarioId };
+
+    if (period === 'session' && sessionId) {
+        params.session_id = sessionId;
+        params.from = new Date(now.getTime() - 24 * 3600 * 1000).toISOString();
+        params.to = now.toISOString();
+        return params;
+    }
+
+    let from;
+    let to = now;
+    if (period === 'today') {
+        from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (period === '7d') {
+        from = new Date(now.getTime() - 7 * 86400000);
+    } else {
+        from = customFrom
+            ? new Date(customFrom)
+            : new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        to = customTo ? new Date(customTo) : now;
+    }
+
+    params.from = from.toISOString();
+    params.to = to.toISOString();
+    return params;
+}
+
+function ExportBar({
+    period,
+    options,
+    onPeriod,
+    customFrom,
+    customTo,
+    onFrom,
+    onTo,
+    exporting,
+    error,
+    onExport,
+}) {
+    return (
+        <div className="watch__export">
+            <div className="watch__export-row">
+                <span className="watch__export-label">Export CSV</span>
+                <Tabs options={options} value={period} onChange={onPeriod} label="Période d'export" />
+                <button
+                    type="button"
+                    className="btn"
+                    disabled={Boolean(exporting)}
+                    onClick={() => onExport('occupation')}
+                >
+                    {exporting === 'occupation' ? 'Export…' : 'Occupations'}
+                </button>
+                <button
+                    type="button"
+                    className="btn"
+                    disabled={Boolean(exporting)}
+                    onClick={() => onExport('alerts')}
+                >
+                    {exporting === 'alerts' ? 'Export…' : 'Alertes'}
+                </button>
+            </div>
+            {period === 'custom' && (
+                <div className="watch__export-custom">
+                    <label className="field__label" htmlFor="export-from">
+                        Du
+                    </label>
+                    <input
+                        id="export-from"
+                        className="text-input"
+                        type="datetime-local"
+                        value={customFrom}
+                        onChange={(event) => onFrom(event.target.value)}
+                    />
+                    <label className="field__label" htmlFor="export-to">
+                        Au
+                    </label>
+                    <input
+                        id="export-to"
+                        className="text-input"
+                        type="datetime-local"
+                        value={customTo}
+                        onChange={(event) => onTo(event.target.value)}
+                    />
+                </div>
+            )}
+            {error && (
+                <p className="watch__banner watch__banner--error" role="alert">
+                    {error}
+                </p>
+            )}
+        </div>
     );
 }

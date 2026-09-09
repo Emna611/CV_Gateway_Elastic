@@ -1,11 +1,30 @@
 """Chargement de config.yaml et exposition des valeurs par défaut."""
 
+import os
 from pathlib import Path
 
 import yaml
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_PATH = BASE_DIR / "config.yaml"
+ENV_PATH = BASE_DIR / ".env"
+
+
+def _load_dotenv() -> None:
+    """Charge ai_engine/.env sans écraser les variables déjà présentes."""
+    if not ENV_PATH.exists():
+        return
+    for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, raw = line.partition("=")
+        key = key.strip()
+        if key and key not in os.environ:
+            os.environ[key] = raw.strip().strip('"').strip("'")
+
+
+_load_dotenv()
 
 
 class ConfigError(RuntimeError):
@@ -42,6 +61,14 @@ ALLOWED_EXTENSIONS = tuple(SOURCE.get("allowed_extensions", [".mp4", ".avi", ".m
 MAX_UPLOAD_BYTES = int(SOURCE.get("max_upload_mb", 1024)) * 1024 * 1024
 OPEN_TIMEOUT = float(SOURCE.get("open_timeout_seconds", 12))
 RTSP_TRANSPORT = SOURCE.get("rtsp_transport", "tcp")
+
+
+def laravel_url() -> str:
+    return os.environ.get("LARAVEL_URL") or CONFIG.get("laravel", {}).get("url", "http://127.0.0.1:8000")
+
+
+def ingest_token() -> str:
+    return os.environ.get("INGEST_TOKEN", "")
 
 
 def scenario_ids() -> list:

@@ -1,5 +1,7 @@
 """Point d'entrée du moteur d'inférence CV-Gateway Elastic (Flask, :5000)."""
 
+import logging
+
 from flask import Flask, jsonify
 
 from engine import runtime, settings
@@ -7,6 +9,7 @@ from engine.api import api
 
 
 def create_app() -> Flask:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = settings.MAX_UPLOAD_BYTES
     # Les messages d'erreur sont en français : pas d'échappement \uXXXX.

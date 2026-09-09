@@ -257,13 +257,6 @@ class OfficePipeline:
             elapsed = now - self._last_tick.get(zone_id, now)
             self._last_tick[zone_id] = now
 
-            if occupied:
-                if not state['occupied']:
-                    state['entered_at'] = now
-                state['occupied_seconds'] += elapsed
-            else:
-                state['entered_at'] = None
-
             alert = 'ACTIVE'
             for person in occupants:
                 candidate = person['state']
@@ -273,14 +266,43 @@ class OfficePipeline:
                 if PRIORITY.get(candidate, 0) > PRIORITY.get(alert, 0):
                     alert = candidate
 
+            activity = 'IDLE'
+            if occupied:
+                activity = 'IDLE' if all(person['idle'] for person in occupants) else 'ACTIVE'
+
+            if occupied:
+                if not state['occupied']:
+                    state['entered_at'] = now
+                    self._emit_occupation('enter', zone, activity, entered_at=now)
+                elif activity != state['activity_state']:
+                    duration = now - (state['entered_at'] or now)
+                    self._emit_occupation(
+                        'exit',
+                        zone,
+                        state['activity_state'],
+                        entered_at=state['entered_at'],
+                        exited_at=now,
+                        duration_seconds=duration,
+                    )
+                    state['entered_at'] = now
+                    self._emit_occupation('enter', zone, activity, entered_at=now)
+                state['occupied_seconds'] += elapsed
+            elif state['occupied']:
+                duration = now - (state['entered_at'] or now)
+                self._emit_occupation(
+                    'exit',
+                    zone,
+                    state['activity_state'],
+                    entered_at=state['entered_at'],
+                    exited_at=now,
+                    duration_seconds=duration,
+                )
+                state['entered_at'] = None
+
             if occupied and alert == 'SLEEPING':
                 state['sleep_seconds'] += elapsed
             if occupied and alert == 'ON_PHONE':
                 state['phone_seconds'] += elapsed
-
-            activity = 'IDLE'
-            if occupied:
-                activity = 'IDLE' if all(person['idle'] for person in occupants) else 'ACTIVE'
 
             if occupied and alert != state['alert'] and alert != 'ACTIVE':
                 self._emit(alert, zone, occupants)
@@ -301,6 +323,48 @@ class OfficePipeline:
                 'at': time.time(),
             }
         )
+
+    def _emit_occupation(
+        self,
+        action,
+        zone,
+        activity_state,
+        entered_at=None,
+        exited_at=None,
+        duration_seconds=None,
+    ):
+        self.events.append(
+            {
+                'kind': 'occupation',
+                'action': action,
+                'zone_id': zone['id'],
+                'zone_name': zone['name'],
+                'activity_state': activity_state,
+                'entered_at': entered_at,
+                'exited_at': exited_at,
+                'duration_seconds': None if duration_seconds is None else round(duration_seconds, 1),
+                'at': time.time(),
+            }
+        )
+
+    def close_open_occupations(self, now=None):
+        """Clôture les postes encore occupés à l'arrêt de la session."""
+        now = now or time.time()
+        for zone in self.zones:
+            state = self.zone_state[zone['id']]
+            if not state['occupied']:
+                continue
+            duration = now - (state['entered_at'] or now)
+            self._emit_occupation(
+                'exit',
+                zone,
+                state['activity_state'],
+                entered_at=state['entered_at'],
+                exited_at=now,
+                duration_seconds=duration,
+            )
+            state['occupied'] = False
+            state['entered_at'] = None
 
     # ── rendu ──
 

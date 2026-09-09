@@ -187,3 +187,6 @@ class KitchenPipeline:
     def drain_events(self):
         events, self.events = self.events, []
         return events
+
+    def close_open_occupations(self, now=None):
+        return

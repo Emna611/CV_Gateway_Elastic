@@ -17,6 +17,9 @@ engine:
   frames_dir: "data/frames"
   configs_dir: "data/configs"
 
+laravel:
+  url: "http://127.0.0.1:8000"
+
 source:
   allowed_extensions: [".mp4", ".avi", ".mov"]
   max_upload_mb: 1024

@@ -10,6 +10,11 @@ export default defineConfig({
     // Le moteur d'inférence (ai_engine, Flask) est servi sous le même origin
     // qu'en production : le frontend appelle /api/... sans question de CORS.
     proxy: {
+      // Export CSV et API Laravel : plus spécifique que /api, donc en premier.
+      '/api/export': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,

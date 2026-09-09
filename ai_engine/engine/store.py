@@ -1,6 +1,6 @@
 """Validation et persistance de la configuration d'un scénario.
 
-La persistance définitive (Laravel) arrive en phase 5. En attendant, la
+La persistance métier (occupations, alertes) est dans Laravel. Ici, la
 configuration validée est écrite en JSON dans data/configs/ afin que
 « Enregistrer » ait un effet réel et rechargeable.
 """

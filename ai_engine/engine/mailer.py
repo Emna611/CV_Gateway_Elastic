@@ -1,7 +1,7 @@
 """Envoi réel d'un email de test.
 
-L'envoi des alertes en production passera par une file Laravel (phase 5). Ce
-module ne sert qu'au bouton « Envoyer un email de test » de l'écran de
+Les alertes de production passent par Laravel (file d'attente + anti-spam).
+Ce module ne sert qu'au bouton « Envoyer un email de test » de l'écran de
 configuration : il tente un vrai envoi SMTP et remonte l'erreur exacte. Si le
 SMTP n'est pas configuré, il le dit au lieu de simuler un succès.
 """

@@ -90,6 +90,49 @@ export function stopEngine() {
 
 export const ENGINE_STREAM_URL = '/api/engine/stream';
 
+export async function downloadExport(kind, params) {
+    const query = new URLSearchParams({ format: 'csv', ...params });
+    let response;
+    try {
+        response = await fetch(`/api/export/${kind}?${query}`);
+    } catch {
+        throw new ApiError(
+            'Backend Laravel injoignable. Vérifiez que le service tourne sur le port 8000.',
+            0,
+        );
+    }
+
+    if (!response.ok) {
+        let message = `Erreur ${response.status}`;
+        try {
+            const payload = await response.json();
+            message = payload.error ?? payload.message ?? message;
+            if (payload.errors) {
+                const first = Object.values(payload.errors)[0];
+                if (Array.isArray(first) && first[0]) message = first[0];
+            }
+        } catch {
+            /* réponse non JSON (proxy, 502…) */
+        }
+        throw new ApiError(message, response.status);
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get('Content-Disposition') ?? '';
+    const match = disposition.match(/filename=\"?([^\";]+)\"?/i);
+    const fallback = kind === 'occupation' ? 'occupations.csv' : 'alertes.csv';
+    const filename = match?.[1] ?? fallback;
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
 /* Le téléversement passe par XMLHttpRequest : fetch n'expose pas la
    progression d'envoi, et une vidéo de plusieurs centaines de Mo mérite une
    barre de progression réelle. */

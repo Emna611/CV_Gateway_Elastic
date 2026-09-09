@@ -11,7 +11,7 @@ from collections import deque
 
 import cv2
 
-from . import settings, sources
+from . import ingest, settings, sources
 from .pipelines import PIPELINES
 
 # Encodage de l'aperçu diffusé : compromis lisibilité / bande passante.
@@ -117,6 +117,7 @@ class EngineSession:
         self._stop = threading.Event()
         self._worker = None
         self._lock = threading.Lock()
+        self._finalized = False
 
     # ── étapes ──
 
@@ -316,6 +317,7 @@ class EngineSession:
             if remaining > 0:
                 self._stop.wait(remaining)
 
+        self._finalize()
         self.release()
 
     def _publish(self, frame):
@@ -328,9 +330,24 @@ class EngineSession:
 
     def _collect_events(self):
         for event in self.pipeline.drain_events():
+            if event.get('kind') == 'occupation':
+                ingest.client.occupation(self, event)
+                continue
             self._alert_sequence += 1
             event['id'] = self._alert_sequence
             self.alerts.appendleft(event)
+            ingest.client.alert(self, event, snapshot=self._jpeg)
+
+    def _finalize(self):
+        if self._finalized:
+            return
+        self._finalized = True
+        if self.pipeline is not None:
+            closer = getattr(self.pipeline, 'close_open_occupations', None)
+            if closer is not None:
+                closer()
+            self._collect_events()
+        ingest.client.close_session(self.id)
 
     def _measure(self, tick):
         self._fps_window.append(time.time() - tick)
@@ -385,6 +402,7 @@ class EngineSession:
             worker.join(timeout=5)
         if self.state in ('running', 'starting'):
             self.state = 'stopped'
+        self._finalize()
         self.release()
 
     def release(self):
