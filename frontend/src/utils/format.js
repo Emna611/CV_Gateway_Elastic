@@ -46,3 +46,19 @@ export function formatClock(epochSeconds) {
 }
 
 export const EMAIL_RE = /^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$/;
+
+export const E164_RE = /^\+[1-9]\d{7,14}$/;
+
+export function normalizePhone(raw) {
+    const compact = String(raw ?? '').replace(/[^\d+]/g, '');
+    if (!compact) return '';
+    let phone = compact;
+    if (phone.startsWith('00')) phone = `+${phone.slice(2)}`;
+    else if (/^216\d{8}$/.test(phone)) phone = `+${phone}`;
+    else if (/^\d{8}$/.test(phone)) phone = `+216${phone}`;
+    return phone;
+}
+
+export function isValidPhone(raw) {
+    return E164_RE.test(normalizePhone(raw));
+}

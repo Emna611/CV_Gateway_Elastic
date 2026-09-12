@@ -28,6 +28,7 @@ FFMPEG_OPTIONS_KEY = "OPENCV_FFMPEG_CAPTURE_OPTIONS"
 RTSP_OPTIONS = (
     f"rtsp_transport;{settings.RTSP_TRANSPORT}"
     f"|timeout;{int(settings.OPEN_TIMEOUT * 1_000_000)}"
+    "|fflags;nobuffer|flags;low_delay|max_delay;500000"
 )
 
 # OpenCV lit cette variable d'environnement à la création de chaque
@@ -403,6 +404,7 @@ def open_capture(source_type: str, value: str):
         meta = _capture_meta(cap, frame)
         meta["looping"] = True
         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         return cap, meta
 
     if source_type == "rtsp":
@@ -417,7 +419,11 @@ def open_capture(source_type: str, value: str):
                 "Flux YouTube non résolvable : yt-dlp n'a obtenu aucune URL. "
                 "YouTube exige un runtime JavaScript (deno) sur la machine hôte."
             )
-        target, backend, options = stream, cv2.CAP_FFMPEG, None
+        target, backend, options = (
+            stream,
+            cv2.CAP_FFMPEG,
+            "fflags;nobuffer|flags;low_delay|max_delay;500000",
+        )
     else:
         raise SourceError(f"Type de source inconnu : {source_type}")
 
@@ -426,6 +432,8 @@ def open_capture(source_type: str, value: str):
         if cap is not None:
             cap.release()
         raise SourceError("La source n'a pas pu être ouverte.")
+
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     try:
         frame = _read_first_frame(cap, "Source")

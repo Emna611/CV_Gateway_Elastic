@@ -70,6 +70,10 @@ export function testEmail(scenarioId, recipient) {
     return postJson('/api/email/test', { scenario: scenarioId, recipient });
 }
 
+export function getEmailStatus() {
+    return request('/api/email/status');
+}
+
 /* Le démarrage renvoie 202 : la séquence se poursuit côté moteur et son
    avancement se lit avec getEngineStatus. */
 export function startEngine(scenarioId, config) {
@@ -88,7 +92,83 @@ export function stopEngine() {
     return postJson('/api/engine/stop', {});
 }
 
+export function updateEngineDetections(detections) {
+    return request('/api/engine/detections', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ detections }),
+    });
+}
+
+export function updateEngineAlerts(email, sms) {
+    return request('/api/engine/alerts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, sms }),
+    });
+}
+
 export const ENGINE_STREAM_URL = '/api/engine/stream';
+export const ENGINE_FRAME_URL = '/api/engine/frame';
+
+const LARAVEL_OFFLINE =
+    'Backend Laravel injoignable. Vérifiez que le service tourne sur le port 8000.';
+
+export async function fetchJournal(kind, params) {
+    const query = new URLSearchParams({ format: 'json', limit: '80', ...params });
+    let response;
+    try {
+        response = await fetch(`/api/export/${kind}?${query}`);
+    } catch {
+        throw new ApiError(LARAVEL_OFFLINE, 0);
+    }
+
+    let payload = null;
+    try {
+        payload = await response.json();
+    } catch {
+        payload = null;
+    }
+
+    if (!response.ok || payload?.ok === false) {
+        let message = payload?.error ?? `Erreur ${response.status}`;
+        if (payload?.errors) {
+            const first = Object.values(payload.errors)[0];
+            if (Array.isArray(first) && first[0]) message = first[0];
+        }
+        throw new ApiError(message, response.status);
+    }
+
+    return payload;
+}
+
+export async function deleteJournal(params) {
+    const query = new URLSearchParams(params);
+    let response;
+    try {
+        response = await fetch(`/api/export/journal?${query}`, { method: 'DELETE' });
+    } catch {
+        throw new ApiError(LARAVEL_OFFLINE, 0);
+    }
+
+    let payload = null;
+    try {
+        payload = await response.json();
+    } catch {
+        payload = null;
+    }
+
+    if (!response.ok || payload?.ok === false) {
+        let message = payload?.error ?? `Erreur ${response.status}`;
+        if (payload?.errors) {
+            const first = Object.values(payload.errors)[0];
+            if (Array.isArray(first) && first[0]) message = first[0];
+        }
+        throw new ApiError(message, response.status);
+    }
+
+    return payload;
+}
 
 export async function downloadExport(kind, params) {
     const query = new URLSearchParams({ format: 'csv', ...params });
@@ -96,10 +176,7 @@ export async function downloadExport(kind, params) {
     try {
         response = await fetch(`/api/export/${kind}?${query}`);
     } catch {
-        throw new ApiError(
-            'Backend Laravel injoignable. Vérifiez que le service tourne sur le port 8000.',
-            0,
-        );
+        throw new ApiError(LARAVEL_OFFLINE, 0);
     }
 
     if (!response.ok) {

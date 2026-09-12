@@ -1,0 +1,81 @@
+# CV-Gateway Elastic — pile locale (même origin que le Vite de dev).
+#
+#   docker compose up --build
+#   http://localhost:3000
+#
+# Le moteur YOLO : les .pt restent hors image (volumes). Pour installer
+# Torch dans l'image : docker compose build --build-arg INSTALL_ML=1 ai_engine
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+      - ai_engine
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      APP_URL: http://127.0.0.1:8000
+      FRONTEND_URL: http://localhost:3000
+    volumes:
+      - laravel-db:/var/www/html/database
+      - laravel-storage:/var/www/html/storage
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8000/up')===false?1:0);"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
+
+  queue:
+    build:
+      context: ./backend
+    command: php artisan queue:work --tries=3 --timeout=120
+    env_file:
+      - ./backend/.env
+    environment:
+      APP_URL: http://127.0.0.1:8000
+      FRONTEND_URL: http://localhost:3000
+    volumes:
+      - laravel-db:/var/www/html/database
+      - laravel-storage:/var/www/html/storage
+    depends_on:
+      backend:
+        condition: service_started
+
+  ai_engine:
+    build:
+      context: ./ai_engine
+      args:
+        INSTALL_ML: ${INSTALL_ML:-0}
+    ports:
+      - "5000:5000"
+    environment:
+      ENGINE_HOST: 0.0.0.0
+      ENGINE_PORT: 5000
+      LARAVEL_URL: http://backend:8000
+      INGEST_TOKEN: ${INGEST_TOKEN:-cv-gateway-local-ingest}
+    volumes:
+      - ./Office_Monitoring_v2:/Office_Monitoring_v2:ro
+      - ./PPE_Restaurant:/PPE_Restaurant:ro
+      - engine-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/health', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  laravel-db:
+  laravel-storage:
+  engine-data:

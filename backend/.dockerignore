@@ -1,0 +1,9 @@
+vendor
+node_modules
+.git
+.env
+database/*.sqlite
+database/*.sqlite-journal
+storage/logs/*.log
+public/hot
+public/storage

@@ -94,9 +94,10 @@ export default function ScenarioConfig() {
                     />
                     <EmailPanel
                         scenarioId={scenarioId}
-                        state={state}
-                        dispatch={dispatch}
+                        defaults={state.defaults}
+                        email={state.email}
                         thresholdKeys={derived.thresholdKeys}
+                        onEmailChange={(patch) => dispatch({ type: 'email', patch })}
                     />
                     {state.defaults.has_zones && (
                         <ZonesPanel

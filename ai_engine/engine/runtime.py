@@ -15,7 +15,8 @@ from . import ingest, settings, sources
 from .pipelines import PIPELINES
 
 # Encodage de l'aperçu diffusé : compromis lisibilité / bande passante.
-JPEG_QUALITY = 78
+JPEG_QUALITY = 52
+PREVIEW_MAX_WIDTH = 960
 
 
 class EngineError(Exception):
@@ -67,6 +68,60 @@ class _Warmup:
 warmup = _Warmup()
 
 
+class _LiveGrabber:
+    """Lit le flux en continu et ne conserve que la dernière image.
+
+    Sur RTSP / YouTube, OpenCV accumule des frames pendant le chargement des
+    modèles et pendant l'inférence : le live se décale alors de plusieurs
+    secondes. Ce thread vide le tampon pour que le pipeline traite l'instant
+    présent. VideoCapture n'est pas partagé : lui seul y accède.
+    """
+
+    def __init__(self, capture):
+        self._capture = capture
+        self._lock = threading.Lock()
+        self._frame = None
+        self._ok = True
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True, name="live-grabber")
+        self._thread.start()
+
+    def _run(self):
+        while not self._stop.is_set():
+            ok, frame = self._capture.read()
+            with self._lock:
+                if ok and frame is not None:
+                    self._ok = True
+                    self._frame = frame
+                else:
+                    self._ok = False
+            if not ok and self._stop.wait(0.05):
+                break
+
+    def read(self, timeout=2.0):
+        deadline = time.time() + timeout
+        while time.time() < deadline and not self._stop.is_set():
+            with self._lock:
+                frame = self._frame
+                ok = self._ok
+                if frame is not None:
+                    self._frame = None
+                    return True, frame.copy()
+            if not ok:
+                time.sleep(0.02)
+                continue
+            time.sleep(0.005)
+        with self._lock:
+            frame = self._frame
+            self._frame = None
+            return (True, frame.copy()) if frame is not None else (False, None)
+
+    def stop(self):
+        self._stop.set()
+        if self._thread.is_alive() and self._thread is not threading.current_thread():
+            self._thread.join(timeout=2)
+
+
 def _steps_for(with_zones: bool) -> list:
     return [
         {'id': 'source', 'label': 'Connexion à la source', 'status': 'pending', 'detail': None},
@@ -91,8 +146,8 @@ class EngineSession:
         self.defaults = defaults
 
         self.detections = config.get('detections', [])
-        self.zones = config.get('zones', []) if settings.requires_zones(defaults, self.detections) else []
-        self.with_zones = bool(self.zones)
+        self.zones = list(config.get('zones') or [])
+        self.with_zones = settings.requires_zones(defaults, self.detections) and bool(self.zones)
 
         self.state = 'starting'
         self.error = None
@@ -100,7 +155,10 @@ class EngineSession:
         self.steps = _steps_for(self.with_zones)
 
         self.capture = None
+        self._grabber = None
         self.pipeline = None
+        self.models = {}
+        self.inference = {}
         self.source_meta = {}
 
         self.started_at = time.time()
@@ -117,6 +175,7 @@ class EngineSession:
         self._stop = threading.Event()
         self._worker = None
         self._lock = threading.Lock()
+        self._pipeline_lock = threading.Lock()
         self._finalized = False
 
     # ── étapes ──
@@ -169,6 +228,9 @@ class EngineSession:
             self._fail('source', str(exc))
             raise EngineError(str(exc)) from exc
 
+        if not self.source_meta.get("looping"):
+            self._grabber = _LiveGrabber(self.capture)
+
         resolution = f"{self.source_meta['width']}×{self.source_meta['height']}"
         fps = self.source_meta.get('fps')
         self._done('source', f'{resolution}' + (f' à {fps} fps' if fps else ''))
@@ -212,8 +274,14 @@ class EngineSession:
 
         inference = dict(self.defaults.get('inference', {}))
         for spec in specs:
-            if 'confidence' in spec and spec['name'] == 'phone_model.pt':
+            if 'confidence' not in spec:
+                continue
+            if spec['name'] == 'phone_model.pt':
                 inference['phone_confidence'] = spec['confidence']
+            elif spec['name'] == 'yolo11n.pt':
+                inference['laptop_confidence'] = spec['confidence']
+        self.models = models
+        self.inference = inference
         return models, inference
 
     def _init_zones(self):
@@ -261,14 +329,16 @@ class EngineSession:
 
         # Une première image traitée avant de déclarer le pipeline démarré :
         # c'est la seule preuve que la chaîne complète fonctionne.
-        ok, frame = self.capture.read()
+        ok, frame = self._read_latest()
         if not ok or frame is None:
             detail = 'Le pipeline n\'a reçu aucune image de la source.'
             self._fail('pipeline', detail)
             raise EngineError(detail)
 
         try:
-            self._publish(self.pipeline.process(frame))
+            with self._pipeline_lock:
+                processed = self.pipeline.process(frame)
+            self._publish(processed)
         except Exception as exc:
             detail = f'Le traitement de la première image a échoué : {exc}'
             self._fail('pipeline', detail)
@@ -292,7 +362,7 @@ class EngineSession:
 
         while not self._stop.is_set():
             tick = time.time()
-            ok, frame = self.capture.read()
+            ok, frame = self._read_latest()
 
             if not ok or frame is None:
                 if self.source_meta.get('looping'):
@@ -303,7 +373,9 @@ class EngineSession:
                 break
 
             try:
-                self._publish(self.pipeline.process(frame))
+                with self._pipeline_lock:
+                    processed = self.pipeline.process(frame)
+                self._publish(processed)
             except Exception as exc:  # pragma: no cover - dépend du modèle
                 self.state = 'failed'
                 self.error = f'Traitement interrompu : {exc}'
@@ -320,8 +392,28 @@ class EngineSession:
         self._finalize()
         self.release()
 
+    def _read_latest(self):
+        """Lit la frame à traiter.
+
+        Fichier en boucle : lecture séquentielle, pour que les durées restent
+        calées sur le temps réel. Flux live : image la plus récente fournie
+        par le grabber, les images intercalaires sont abandonnées.
+        """
+        if self._grabber is not None:
+            return self._grabber.read()
+        return self.capture.read()
+
     def _publish(self, frame):
-        ok, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY])
+        preview = frame
+        height, width = frame.shape[:2]
+        if width > PREVIEW_MAX_WIDTH:
+            scale = PREVIEW_MAX_WIDTH / width
+            preview = cv2.resize(
+                frame,
+                (PREVIEW_MAX_WIDTH, max(1, int(height * scale))),
+                interpolation=cv2.INTER_AREA,
+            )
+        ok, buffer = cv2.imencode(".jpg", preview, [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY])
         if not ok:
             return
         with self._frame_event:
@@ -378,6 +470,8 @@ class EngineSession:
             'error': self.error,
             'failed_step': self.failed_step,
             'detections': self.detections,
+            'email': self.config.get('email') or {},
+            'sms': self.config.get('sms') or {},
             'source': {
                 'type': self.config['source']['type'],
                 **{k: v for k, v in self.source_meta.items() if k != 'name'},
@@ -393,6 +487,64 @@ class EngineSession:
         payload['alerts'] = list(self.alerts)[:40]
         return payload
 
+    def update_detections(self, detections):
+        """Active ou désactive des classes pendant que le pipeline tourne."""
+        if self.state != 'running' or self.pipeline is None:
+            raise EngineError("L'analyse n'est pas en cours.")
+        if settings.requires_zones(self.defaults, detections) and not self.zones:
+            raise EngineError(
+                "Aucune zone tracée : l'occupation des postes en exige au moins une. "
+                "Arrêtez l'analyse et tracez-les dans la configuration."
+            )
+
+        needed = settings.model_specs(self.defaults, detections)
+        extra = {}
+        from ultralytics import YOLO
+
+        device = warmup.device or 'cpu'
+        for spec in needed:
+            if spec['name'] in self.models:
+                continue
+            if not spec['resolved_path'].exists():
+                raise EngineError(f"Poids introuvables : {spec['name']}")
+            model = YOLO(str(spec['resolved_path']))
+            model.to(device)
+            self.models[spec['name']] = model
+            extra[spec['name']] = model
+            if spec['name'] == 'phone_model.pt' and 'confidence' in spec:
+                self.inference['phone_confidence'] = spec['confidence']
+            if spec['name'] == 'yolo11n.pt' and 'confidence' in spec:
+                self.inference['laptop_confidence'] = spec['confidence']
+
+        with self._pipeline_lock:
+            self.pipeline.apply_detections(detections, models=self.models)
+            if extra.get('phone_model.pt') and hasattr(self.pipeline, 'phone_confidence'):
+                self.pipeline.phone_confidence = self.inference.get(
+                    'phone_confidence', self.pipeline.phone_confidence
+                )
+            if extra.get('yolo11n.pt') and hasattr(self.pipeline, 'laptop_confidence'):
+                self.pipeline.laptop_confidence = self.inference.get(
+                    'laptop_confidence', self.pipeline.laptop_confidence
+                )
+            self.detections = detections
+            self.config['detections'] = detections
+            self.config['models'] = settings.active_model_names(self.defaults, detections)
+            self.config['requires_zones'] = settings.requires_zones(self.defaults, detections)
+            email = dict(self.config.get('email') or {})
+            sms = dict(self.config.get('sms') or {})
+            active = set(settings.active_threshold_keys(self.defaults, detections))
+            email['types'] = [key for key in email.get('types', []) if key in active]
+            sms['types'] = [key for key in sms.get('types', []) if key in active]
+            self.config['email'] = email
+            self.config['sms'] = sms
+
+    def update_notifications(self, email, sms):
+        """Change destinataires et canaux sans arrêter le pipeline."""
+        if self.state != 'running':
+            raise EngineError("L'analyse n'est pas en cours.")
+        self.config['email'] = email
+        self.config['sms'] = sms
+
     # ── arrêt ──
 
     def stop(self):
@@ -406,6 +558,10 @@ class EngineSession:
         self.release()
 
     def release(self):
+        grabber = self._grabber
+        self._grabber = None
+        if grabber is not None:
+            grabber.stop()
         with self._lock:
             if self.capture is not None:
                 self.capture.release()

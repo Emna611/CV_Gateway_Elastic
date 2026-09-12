@@ -303,20 +303,6 @@
     border-top: 1px solid var(--border);
 }
 
-/* ── Email ── */
-.email__body {
-    margin-top: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.email__types {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
-    gap: 6px;
-}
-
 /* ── Aperçu ── */
 .preview {
     display: flex;

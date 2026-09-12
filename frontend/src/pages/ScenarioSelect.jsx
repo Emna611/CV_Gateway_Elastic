@@ -7,8 +7,9 @@ export default function ScenarioSelect() {
     return (
         <section className="scenario-select">
             <div className="scenario-select__intro">
+                <h1 className="scenario-select__project">CV-Gateway Elastic</h1>
                 <span className="section-label">Étape 1 sur 3 — Choix du scénario</span>
-                <h1 className="scenario-select__title">Quel environnement supervisez-vous ?</h1>
+                <p className="scenario-select__title">Quel environnement supervisez-vous ?</p>
                 <p className="scenario-select__lead">
                     Le scénario détermine les modèles chargés par le moteur, les états
                     détectables et les options de configuration disponibles à l&apos;étape

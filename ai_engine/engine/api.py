@@ -6,7 +6,7 @@ import uuid
 
 from flask import Blueprint, Response, jsonify, request, send_from_directory
 
-from . import mailer, runtime, settings, sources, store
+from . import ingest, runtime, settings, sources, store
 
 api = Blueprint("api", __name__, url_prefix="/api")
 
@@ -30,12 +30,18 @@ def _with_preview_url(result: dict) -> dict:
 
 @api.get("/health")
 def health():
+    smtp = {"configured": False}
+    try:
+        payload = ingest.request_json("GET", "/api/notify/email/status", timeout=3)
+        smtp = {k: v for k, v in payload.items() if k != "ok"}
+    except ingest.LaravelError:
+        pass
     return jsonify(
         {
             "ok": True,
             "service": "ai_engine",
             "scenarios": settings.scenario_ids(),
-            "smtp": mailer.smtp_status(),
+            "smtp": smtp,
             "inference": runtime.warmup.state(),
         }
     )
@@ -125,7 +131,11 @@ def source_frame(token):
 
 @api.get("/email/status")
 def email_status():
-    return jsonify({"ok": True, "smtp": mailer.smtp_status()})
+    try:
+        payload = ingest.request_json("GET", "/api/notify/email/status")
+    except ingest.LaravelError as exc:
+        return _fail(str(exc), exc.status, configured=False)
+    return jsonify({"ok": True, **{k: v for k, v in payload.items() if k != "ok"}})
 
 
 @api.post("/email/test")
@@ -136,17 +146,61 @@ def email_test():
         return _fail("Adresse destinataire invalide.", 422)
 
     scenario_id = payload.get("scenario")
-    defaults = settings.scenario_defaults(scenario_id) if scenario_id else None
-    label = defaults["label"] if defaults else "non précisé"
+    try:
+        result = ingest.request_json(
+            "POST",
+            "/api/notify/email/test",
+            {"recipient": recipient, "scenario": scenario_id},
+        )
+    except ingest.LaravelError as exc:
+        configured = exc.status != 503
+        return _fail(str(exc), 503 if exc.status == 503 else min(exc.status, 502), configured=configured)
+
+    return jsonify(
+        {
+            "ok": True,
+            "message": result.get("message") or f"Email envoyé à {recipient}.",
+            "via": result.get("via") or "Laravel",
+        }
+    )
+
+
+# ─────────────────────────── SMS ───────────────────────────
+
+
+@api.get("/sms/status")
+def sms_status():
+    try:
+        payload = ingest.request_json("GET", "/api/notify/sms/status")
+    except ingest.LaravelError as exc:
+        return _fail(str(exc), exc.status, configured=False)
+    return jsonify({"ok": True, **{k: v for k, v in payload.items() if k != "ok"}})
+
+
+@api.post("/sms/test")
+def sms_test():
+    payload = request.get_json(silent=True) or {}
+    phone = str(payload.get("phone") or "").strip()
+    try:
+        normalized = store.normalize_phone(phone)
+    except ValueError as exc:
+        return _fail(str(exc).split(" : ", 1)[-1], 422)
+    if not normalized:
+        return _fail("Numéro destinataire invalide.", 422)
 
     try:
-        result = mailer.send_test(recipient, label)
-    except mailer.SmtpNotConfigured as exc:
-        return _fail(str(exc), 503, configured=False)
-    except mailer.EmailError as exc:
-        return _fail(str(exc), 502)
+        result = ingest.request_json("POST", "/api/notify/sms/test", {"phone": normalized})
+    except ingest.LaravelError as exc:
+        configured = exc.status != 503
+        return _fail(str(exc), 503 if exc.status == 503 else min(exc.status, 502), configured=configured)
 
-    return jsonify({"ok": True, "message": f"Email envoyé à {recipient}.", **result})
+    return jsonify(
+        {
+            "ok": True,
+            "message": result.get("message") or f"SMS envoyé à {normalized}.",
+            "via": result.get("via") or "Twilio",
+        }
+    )
 
 
 # ─────────────────────────── moteur ───────────────────────────
@@ -209,6 +263,70 @@ def engine_stop():
     if session is None:
         return jsonify({"ok": True, "status": {"state": "idle"}})
     return jsonify({"ok": True, "status": session.status()})
+
+
+@api.patch("/engine/detections")
+def engine_detections():
+    session = runtime.manager.session
+    if session is None or session.state != "running":
+        return _fail("Aucune analyse en cours.", 409)
+
+    body = request.get_json(silent=True) or {}
+    try:
+        detections = store.normalize_detections(session.defaults, body.get("detections"))
+        session.update_detections(detections)
+    except store.ValidationError as exc:
+        return _fail(str(exc), 422)
+    except runtime.EngineError as exc:
+        return _fail(str(exc), 422)
+
+    store.save(session.scenario, session.config)
+    return jsonify({"ok": True, "status": session.status()})
+
+
+@api.patch("/engine/alerts")
+def engine_alerts():
+    session = runtime.manager.session
+    if session is None or session.state != "running":
+        return _fail("Aucune analyse en cours.", 409)
+
+    body = request.get_json(silent=True) or {}
+    try:
+        notifications = store.normalize_notifications(
+            session.defaults,
+            session.detections,
+            body.get("email", session.config.get("email")),
+            body.get("sms", session.config.get("sms")),
+        )
+        session.update_notifications(notifications["email"], notifications["sms"])
+    except store.ValidationError as exc:
+        return _fail(str(exc), 422)
+    except runtime.EngineError as exc:
+        return _fail(str(exc), 409)
+
+    store.save(session.scenario, session.config)
+    return jsonify({"ok": True, "status": session.status()})
+
+
+@api.get("/engine/frame")
+def engine_frame():
+    session = runtime.manager.session
+    if session is None or session.state not in ("running", "starting"):
+        return _fail("Aucune analyse en cours.", 409)
+
+    jpeg = session.latest_jpeg(timeout=0.4)
+    if jpeg is None:
+        return _fail("Aucune frame disponible.", 404)
+
+    return Response(
+        jpeg,
+        mimetype="image/jpeg",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @api.get("/engine/stream")

@@ -1,0 +1,26 @@
+/* Styles du panneau Alertes email, partagés config + dashboard. */
+
+.email__body {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.email__channels {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.email__types {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    gap: 6px;
+}
+
+.email__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}

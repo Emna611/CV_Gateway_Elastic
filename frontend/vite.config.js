@@ -15,10 +15,18 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
+      '/api/engine/stream': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+        timeout: 0,
+      },
+      '/api/engine/frame': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,
-        // Le flux MJPEG reste ouvert : un délai trop court le couperait.
         timeout: 0,
       },
     },

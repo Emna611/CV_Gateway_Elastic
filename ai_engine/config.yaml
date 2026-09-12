@@ -67,8 +67,8 @@ scenarios:
     detections:
       zone:
         label: "Occupation des postes"
-        description: "Présence, durée d'occupation et qualification ACTIVE / IDLE"
-        thresholds: ["zone_occupied", "idle"]
+        description: "Présence, durée d'occupation. Une personne dans la zone rend le poste actif."
+        thresholds: ["zone_occupied"]
         models: ["yolo11m-pose.pt"]
         requires_zones: true
       vigilance:
@@ -100,7 +100,7 @@ scenarios:
         step: 1
       idle:
         label: "ACTIVE / IDLE"
-        description: "Immobilité continue avant de basculer le poste en IDLE"
+        description: "Une personne dans la zone est ACTIVE ; hors zone elle est IDLE"
         severity: "info"
         default: 60
         min: 10

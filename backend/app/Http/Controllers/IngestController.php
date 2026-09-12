@@ -3,9 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\SendAlertEmail;
+use App\Jobs\SendAlertSms;
 use App\Models\Alerte;
 use App\Models\EmailCooldown;
 use App\Models\OccupationZone;
+use App\Support\MailSender;
+use App\Support\SmsError;
+use App\Support\SmsSender;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -100,6 +104,12 @@ class IngestController extends Controller
             'email.types' => ['nullable', 'array'],
             'email.types.*' => ['string'],
             'email.cooldown_minutes' => ['nullable', 'numeric', 'min:0'],
+            'sms' => ['nullable', 'array'],
+            'sms.enabled' => ['nullable', 'boolean'],
+            'sms.phone' => ['nullable', 'string', 'max:24'],
+            'sms.types' => ['nullable', 'array'],
+            'sms.types.*' => ['string'],
+            'sms.cooldown_minutes' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $snapshotPath = null;
@@ -129,11 +139,13 @@ class IngestController extends Controller
         ]);
 
         $emailStatus = $this->maybeQueueEmail($alerte, $data['email'] ?? []);
+        $smsStatus = $this->maybeQueueSms($alerte, $data['sms'] ?? [], $data['email'] ?? []);
 
         return response()->json([
             'ok' => true,
             'id' => $alerte->id,
             'email' => $emailStatus,
+            'sms' => $smsStatus,
         ], 201);
     }
 
@@ -175,6 +187,10 @@ class IngestController extends Controller
             return 'filtered';
         }
 
+        if (! MailSender::configured()) {
+            return 'not_configured';
+        }
+
         $cooldown = (int) ($email['cooldown_minutes'] ?? 5);
         if (EmailCooldown::blocks($alerte->type, $recipient, $cooldown)) {
             return 'skipped_cooldown';
@@ -182,6 +198,49 @@ class IngestController extends Controller
 
         EmailCooldown::remember($alerte->type, $recipient);
         SendAlertEmail::dispatch($alerte->id, $recipient);
+
+        return 'queued';
+    }
+
+    /**
+     * @param  array<string, mixed>  $sms
+     * @param  array<string, mixed>  $email
+     */
+    private function maybeQueueSms(Alerte $alerte, array $sms, array $email): string
+    {
+        if (! ($sms['enabled'] ?? false)) {
+            return 'disabled';
+        }
+
+        $rawPhone = trim((string) ($sms['phone'] ?? ''));
+        if ($rawPhone === '') {
+            return 'disabled';
+        }
+
+        try {
+            $phone = SmsSender::normalize($rawPhone);
+        } catch (SmsError) {
+            return 'invalid_phone';
+        }
+
+        $types = array_map('strtolower', $sms['types'] ?? $email['types'] ?? []);
+        $alertKey = strtolower($alerte->type);
+        if ($types !== [] && ! in_array($alertKey, $types, true)) {
+            return 'filtered';
+        }
+
+        if (! SmsSender::configured()) {
+            return 'not_configured';
+        }
+
+        $cooldown = (int) ($sms['cooldown_minutes'] ?? $email['cooldown_minutes'] ?? 5);
+        $destination = 'sms:'.$phone;
+        if (EmailCooldown::blocks($alerte->type, $destination, $cooldown)) {
+            return 'skipped_cooldown';
+        }
+
+        EmailCooldown::remember($alerte->type, $destination);
+        SendAlertSms::dispatch($alerte->id, $phone);
 
         return 'queued';
     }

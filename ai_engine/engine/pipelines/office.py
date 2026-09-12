@@ -11,14 +11,21 @@ import time
 import cv2
 import numpy as np
 
-from ..sleep_detector import SleepDetector
+from ..sleep_detector import L_HIP, L_SHOULDER, R_HIP, R_SHOULDER, SleepDetector
+
+# Fraction minimale de la boîte personne qui doit tomber dans le polygone.
+ZONE_OVERLAP_MIN = 0.22
+# Points du corps visibles pour compter comme une personne (pas une chaise vide).
+PERSON_KEYPOINTS_MIN = 4
+PERSON_KEYPOINT_CONF = 0.25
 
 # Une alerte plus grave écrase une alerte plus faible sur la même zone.
-PRIORITY = {'SLEEPING': 3, 'FATIGUE': 2, 'ON_PHONE': 1, 'IDLE': 0, 'ACTIVE': 0}
+PRIORITY = {'SLEEPING': 3, 'FATIGUE': 2, 'ON_PHONE': 1, 'IDLE': 0, 'ACTIVE': 0, 'STANDING': 0}
 
 STATE_COLORS = {
     'ACTIVE': (99, 190, 74),
     'IDLE': (150, 150, 150),
+    'STANDING': (180, 120, 180),
     'ON_PHONE': (6, 165, 217),
     'FATIGUE': (6, 119, 217),
     'SLEEPING': (38, 38, 220),
@@ -65,6 +72,7 @@ class OfficePipeline:
                 'activity_state': 'IDLE',
                 'occupants': [],
                 'alert': 'ACTIVE',
+                'has_laptop': False,
                 'occupied_seconds': 0.0,
                 'sleep_seconds': 0.0,
                 'phone_seconds': 0.0,
@@ -92,12 +100,15 @@ class OfficePipeline:
         people = self._track_people(frame, now)
         phone_boxes = self._detect_phones(frame)
 
+        assignments = self._locate(people, width, height)
+        self._qualify_activity(people, assignments)
+
         for person in people:
             if self.track_phone and person['state'] == 'ACTIVE':
                 self._apply_phone(person, phone_boxes, now)
 
         self._last_people = len(people)
-        self._update_zones(people, now, width, height)
+        self._update_zones(assignments, now, width, height)
         return self._annotate(frame, people, width, height)
 
     def _apply_phone(self, person, phone_boxes, now):
@@ -134,7 +145,7 @@ class OfficePipeline:
                 if result.keypoints is not None and len(result.keypoints.data) > index:
                     keypoints = result.keypoints.data[index].cpu().numpy()
 
-                state, confirmed, reason, moving = 'ACTIVE', False, '', True
+                state, confirmed, reason, moving = 'IDLE', False, '', False
                 if self.track_vigilance:
                     state, confirmed, reason, moving = self.sleep_detector.analyze(
                         track_id, box, keypoints, now
@@ -150,6 +161,7 @@ class OfficePipeline:
                     {
                         'id': int(track_id),
                         'box': box,
+                        'keypoints': keypoints,
                         'state': state,
                         'confirmed': confirmed,
                         'reason': reason,
@@ -217,28 +229,100 @@ class OfficePipeline:
             [[int(x * width), int(y * height)] for x, y in zone['polygon']], dtype=np.int32
         )
 
-    def _update_zones(self, people, now, width, height):
-        if not self.track_zones:
-            return
+    @staticmethod
+    def _is_real_person(keypoints):
+        """Une chaise ou un manteau n'a pas d'épaules / hanches visibles."""
+        if keypoints is None or len(keypoints) <= R_HIP:
+            return False
+        visible = sum(
+            1 for point in keypoints[: R_HIP + 1] if float(point[2]) >= PERSON_KEYPOINT_CONF
+        )
+        return visible >= PERSON_KEYPOINTS_MIN
 
+    @staticmethod
+    def _overlap_ratio(box, polygon):
+        x1, y1, x2, y2 = (float(box[0]), float(box[1]), float(box[2]), float(box[3]))
+        if x2 <= x1 or y2 <= y1:
+            return 0.0
+        xs = np.linspace(x1, x2, 5)
+        ys = np.linspace(y1, y2, 5)
+        hits = 0
+        total = 0
+        for x in xs:
+            for y in ys:
+                total += 1
+                if cv2.pointPolygonTest(polygon, (float(x), float(y)), False) >= 0:
+                    hits += 1
+        return hits / total if total else 0.0
+
+    @staticmethod
+    def _torso_in_polygon(box, keypoints, polygon):
+        """Le buste (épaules / hanches), pas les pieds dans l'allée."""
+        anchors = []
+        if keypoints is not None and len(keypoints) > R_HIP:
+            pairs = ((L_SHOULDER, R_SHOULDER), (L_HIP, R_HIP))
+            for left, right in pairs:
+                a, b = keypoints[left], keypoints[right]
+                if float(a[2]) >= PERSON_KEYPOINT_CONF and float(b[2]) >= PERSON_KEYPOINT_CONF:
+                    anchors.append(((float(a[0]) + float(b[0])) / 2, (float(a[1]) + float(b[1])) / 2))
+        if not anchors:
+            x1, y1, x2, y2 = (float(box[0]), float(box[1]), float(box[2]), float(box[3]))
+            anchors.append(((x1 + x2) / 2, y1 + (y2 - y1) * 0.45))
+        return any(
+            cv2.pointPolygonTest(polygon, (px, py), False) >= 0 for px, py in anchors
+        )
+
+    def _locate(self, people, width, height):
+        """Une cabine n'est occupée que si une personne réelle a le buste dedans."""
         assignments = {zone['id']: [] for zone in self.zones}
 
+        if not self.track_zones:
+            return assignments
+
+        polygons = {
+            zone['id']: self.polygon_pixels(zone, width, height) for zone in self.zones
+        }
+
         for person in people:
+            if not self._is_real_person(person.get('keypoints')):
+                continue
             box = person['box']
-            probes = [
-                ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2),
-                ((box[0] + box[2]) / 2, box[3]),
-                ((box[0] + box[2]) / 2, box[1] + (box[3] - box[1]) * 0.25),
-            ]
+            keypoints = person.get('keypoints')
+            best_id = None
+            best_score = 0.0
             for zone in self.zones:
-                polygon = self.polygon_pixels(zone, width, height)
-                inside = any(
-                    cv2.pointPolygonTest(polygon, (float(px), float(py)), False) >= 0
-                    for px, py in probes
-                )
-                if inside:
-                    assignments[zone['id']].append(person)
-                    break
+                polygon = polygons[zone['id']]
+                if not self._torso_in_polygon(box, keypoints, polygon):
+                    continue
+                score = self._overlap_ratio(box, polygon)
+                if score > best_score:
+                    best_score = score
+                    best_id = zone['id']
+            if best_id is not None and best_score >= ZONE_OVERLAP_MIN:
+                assignments[best_id].append(person)
+
+        return assignments
+
+    def _qualify_activity(self, people, assignments):
+        """Personne dans la zone → ACTIVE. Personne hors zone → IDLE."""
+        in_zone = {person['id'] for occupants in assignments.values() for person in occupants}
+
+        for person in people:
+            if person['id'] not in in_zone:
+                person['state'] = 'IDLE'
+                person['idle'] = True
+                person['reason'] = ''
+                person['confirmed'] = False
+                continue
+
+            person['idle'] = False
+            if person['state'] in ('SLEEPING', 'FATIGUE'):
+                continue
+            person['state'] = 'ACTIVE'
+
+    def _update_zones(self, assignments, now, width, height):
+        if not self.track_zones:
+            return
 
         confirm_delay = self.thresholds.get('zone_occupied', 3)
 
@@ -257,18 +341,14 @@ class OfficePipeline:
             elapsed = now - self._last_tick.get(zone_id, now)
             self._last_tick[zone_id] = now
 
-            alert = 'ACTIVE'
+            activity = 'ACTIVE' if occupied else 'IDLE'
+            alert = activity
             for person in occupants:
                 candidate = person['state']
                 if not person['confirmed'] and candidate in ('SLEEPING', 'FATIGUE', 'ON_PHONE'):
-                    # Un signe non confirmé ne remonte pas en alerte de zone.
-                    candidate = 'ACTIVE'
+                    candidate = activity
                 if PRIORITY.get(candidate, 0) > PRIORITY.get(alert, 0):
                     alert = candidate
-
-            activity = 'IDLE'
-            if occupied:
-                activity = 'IDLE' if all(person['idle'] for person in occupants) else 'ACTIVE'
 
             if occupied:
                 if not state['occupied']:
@@ -304,13 +384,14 @@ class OfficePipeline:
             if occupied and alert == 'ON_PHONE':
                 state['phone_seconds'] += elapsed
 
-            if occupied and alert != state['alert'] and alert != 'ACTIVE':
+            if occupied and alert != state['alert'] and alert not in ('ACTIVE', 'IDLE'):
                 self._emit(alert, zone, occupants)
 
             state['occupied'] = occupied
-            state['activity_state'] = activity
-            state['occupants'] = [person['id'] for person in occupants]
-            state['alert'] = alert
+            state['activity_state'] = activity if occupied else 'IDLE'
+            state['occupants'] = [person['id'] for person in occupants] if occupied else []
+            state['alert'] = alert if occupied else 'IDLE'
+            state['has_laptop'] = False
 
     def _emit(self, alert_type, zone, occupants):
         self.events.append(
@@ -372,9 +453,14 @@ class OfficePipeline:
         if self.track_zones:
             for zone in self.zones:
                 state = self.zone_state[zone['id']]
-                color = STATE_COLORS.get(
-                    state['alert'] if state['occupied'] else 'IDLE', (150, 150, 150)
-                )
+                color_key = 'IDLE'
+                if state['occupied']:
+                    color_key = (
+                        state['alert']
+                        if state['alert'] in ('SLEEPING', 'FATIGUE', 'ON_PHONE')
+                        else state['activity_state']
+                    )
+                color = STATE_COLORS.get(color_key, (150, 150, 150))
                 polygon = self.polygon_pixels(zone, width, height)
                 overlay = frame.copy()
                 cv2.fillPoly(overlay, [polygon], color)
@@ -392,7 +478,8 @@ class OfficePipeline:
             box = person['box'].astype(int)
             color = STATE_COLORS.get(person['state'], (99, 190, 74))
             cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), color, 2)
-            label = f"#{person['id']} {person['state']}"
+            label_state = 'DEBOUT' if person['state'] == 'STANDING' else person['state']
+            label = f"#{person['id']} {label_state}"
             if person['reason']:
                 label += f" · {person['reason']}"
             cv2.putText(
@@ -409,10 +496,29 @@ class OfficePipeline:
         return {
             'kind': 'bureau',
             'people': self._last_people,
-            'occupied': occupied,
-            'zones': [dict(state) for state in self.zone_state.values()],
+            'occupied': occupied if self.track_zones else 0,
+            'zones': [dict(state) for state in self.zone_state.values()] if self.track_zones else [],
         }
 
     def drain_events(self):
         events, self.events = self.events, []
         return events
+
+    def apply_detections(self, detections, models=None):
+        if models and models.get('phone_model.pt'):
+            self.phone = models['phone_model.pt']
+        self.detections = set(detections)
+        was_zones = self.track_zones
+        self.track_zones = 'zone' in self.detections
+        self.track_vigilance = 'vigilance' in self.detections
+        self.track_phone = 'phone' in self.detections and self.phone is not None
+        if was_zones and not self.track_zones:
+            self.close_open_occupations()
+            for state in self.zone_state.values():
+                state['occupied'] = False
+                state['occupants'] = []
+                state['alert'] = 'ACTIVE'
+                state['activity_state'] = 'IDLE'
+                state['has_laptop'] = False
+        if not self.track_phone:
+            self._phone_since.clear()

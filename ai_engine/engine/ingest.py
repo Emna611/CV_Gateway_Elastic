@@ -23,6 +23,41 @@ logger = logging.getLogger(__name__)
 TIMEOUT = 5
 
 
+class LaravelError(RuntimeError):
+    def __init__(self, message: str, status: int = 502):
+        super().__init__(message)
+        self.status = status
+
+
+def request_json(method: str, path: str, payload: dict | None = None, timeout: float = 15) -> dict:
+    """Appel synchrone vers Laravel (test SMS, statut). L'ingestion reste asynchrone."""
+    token = settings.ingest_token()
+    if not token:
+        raise LaravelError("INGEST_TOKEN manquant : le backend Laravel n'est pas joignable.", 503)
+    url = settings.laravel_url().rstrip("/") + path
+    headers = {
+        "Accept": "application/json",
+        "X-Ingest-Token": token,
+        "Content-Type": "application/json",
+    }
+    data = None if payload is None and method == "GET" else json.dumps(payload or {}).encode("utf-8")
+    request = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            return json.loads(body) if body else {}
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        try:
+            parsed = json.loads(raw) if raw else {}
+        except json.JSONDecodeError:
+            parsed = {}
+        message = parsed.get("error") or raw[:300] or f"HTTP {exc.code}"
+        raise LaravelError(str(message), exc.code) from exc
+    except urllib.error.URLError as exc:
+        raise LaravelError(f"Laravel injoignable ({url}) : {exc.reason}", 502) from exc
+
+
 def _iso(epoch: float | None) -> str | None:
     if epoch is None:
         return None
@@ -77,6 +112,7 @@ class LaravelIngest:
             "duration": event.get("duration"),
             "created_at": _iso(event.get("at")),
             "email": session.config.get("email") or {},
+            "sms": session.config.get("sms") or {},
         }
         item: dict[str, Any] = {
             "method": "POST",

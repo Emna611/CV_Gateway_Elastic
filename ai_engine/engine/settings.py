@@ -71,6 +71,15 @@ def ingest_token() -> str:
     return os.environ.get("INGEST_TOKEN", "")
 
 
+def engine_host() -> str:
+    return os.environ.get("ENGINE_HOST") or CONFIG.get("engine", {}).get("host", "127.0.0.1")
+
+
+def engine_port() -> int:
+    raw = os.environ.get("ENGINE_PORT") or CONFIG.get("engine", {}).get("port", 5000)
+    return int(raw)
+
+
 def scenario_ids() -> list:
     return list(CONFIG.get("scenarios", {}).keys())
 

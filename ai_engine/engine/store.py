@@ -12,6 +12,7 @@ from typing import Any
 from . import settings
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$")
+E164_RE = re.compile(r"^\+[1-9]\d{7,14}$")
 
 
 class ValidationError(ValueError):
@@ -82,6 +83,103 @@ def _validate_zones(raw: Any) -> list:
     return zones
 
 
+def normalize_detections(defaults: dict, raw_detections) -> list:
+    """Valide et ordonne la liste des classes actives."""
+    declared = defaults["detections"]
+    if raw_detections is None:
+        raw_detections = defaults["default_detections"]
+    if not isinstance(raw_detections, list):
+        raise ValidationError("detections : liste attendue.")
+
+    unknown = set(raw_detections) - set(declared)
+    if unknown:
+        raise ValidationError(
+            f"Classes inconnues pour {defaults['scenario']} : {', '.join(sorted(unknown))}"
+        )
+
+    detections = [key for key in declared if key in set(raw_detections)]
+    if not detections:
+        raise ValidationError("Activez au moins une classe à détecter.")
+
+    for detection_id in detections:
+        missing = [
+            required
+            for required in declared[detection_id].get("requires", [])
+            if required not in detections
+        ]
+        if missing:
+            labels = ", ".join(declared[required]["label"] for required in missing)
+            raise ValidationError(
+                f"« {declared[detection_id]['label']} » exige aussi : {labels}."
+            )
+    return detections
+
+
+def normalize_notifications(defaults: dict, detections: list, raw_email, raw_sms) -> dict:
+    """Valide les alertes email pour les classes actuellement actives.
+
+    Le canal SMS a été retiré du produit : le champ est toujours renvoyé
+    désactivé pour rester compatible avec les configurations déjà enregistrées.
+    """
+    specs = defaults["thresholds"]
+    active_thresholds = settings.active_threshold_keys(defaults, detections)
+
+    if raw_email in (None, ""):
+        raw_email = {}
+    if not isinstance(raw_email, dict):
+        raise ValidationError("email : objet attendu.")
+    enabled = bool(raw_email.get("enabled", False))
+    recipient = str(raw_email.get("recipient") or "").strip()
+    if enabled and not EMAIL_RE.match(recipient):
+        raise ValidationError("email.recipient : adresse invalide.")
+
+    raw_types = raw_email.get("types")
+    types = (
+        [key for key in defaults["email"]["default_types"] if key in active_thresholds]
+        if raw_types is None
+        else raw_types
+    )
+    if not isinstance(types, list):
+        raise ValidationError("email.types : liste attendue.")
+    unknown_types = set(types) - set(specs)
+    if unknown_types:
+        raise ValidationError(
+            f"email.types contient des événements inconnus : {', '.join(sorted(unknown_types))}"
+        )
+    inactive_types = [key for key in types if key not in active_thresholds]
+    if inactive_types:
+        labels = ", ".join(specs[key]["label"] for key in inactive_types)
+        raise ValidationError(
+            f"email.types porte sur des classes désactivées : {labels}."
+        )
+    if enabled and not types:
+        raise ValidationError("email.types : sélectionnez au moins un type d'événement.")
+
+    cooldown = _number(
+        raw_email.get("cooldown_minutes", defaults["email"]["cooldown_minutes"].get("default")),
+        defaults["email"]["cooldown_minutes"],
+        "Délai anti-spam",
+    )
+
+    if raw_sms not in (None, "") and not isinstance(raw_sms, dict):
+        raise ValidationError("sms : objet attendu.")
+
+    return {
+        "email": {
+            "enabled": enabled,
+            "recipient": recipient,
+            "types": list(types),
+            "cooldown_minutes": cooldown,
+        },
+        "sms": {
+            "enabled": False,
+            "phone": "",
+            "types": list(types),
+            "cooldown_minutes": cooldown,
+        },
+    }
+
+
 def validate(scenario_id: str, payload: dict) -> dict:
     """Valide une configuration complète contre les bornes de config.yaml."""
     defaults = settings.scenario_defaults(scenario_id)
@@ -99,35 +197,7 @@ def validate(scenario_id: str, payload: dict) -> dict:
     if not source_value:
         raise ValidationError("source.value est vide.")
 
-    # ── classes détectées ──
-    declared = defaults["detections"]
-    raw_detections = payload.get("detections", defaults["default_detections"])
-    if not isinstance(raw_detections, list):
-        raise ValidationError("detections : liste attendue.")
-
-    unknown_detections = set(raw_detections) - set(declared)
-    if unknown_detections:
-        raise ValidationError(
-            f"Classes inconnues pour {scenario_id} : {', '.join(sorted(unknown_detections))}"
-        )
-    # Ordre du YAML conservé, doublons écartés.
-    detections = [key for key in declared if key in set(raw_detections)]
-    if not detections:
-        raise ValidationError("Activez au moins une classe à détecter.")
-
-    for detection_id in detections:
-        missing = [
-            required
-            for required in declared[detection_id].get("requires", [])
-            if required not in detections
-        ]
-        if missing:
-            labels = ", ".join(declared[required]["label"] for required in missing)
-            raise ValidationError(
-                f"« {declared[detection_id]['label']} » exige aussi : {labels}."
-            )
-
-    active_thresholds = settings.active_threshold_keys(defaults, detections)
+    detections = normalize_detections(defaults, payload.get("detections"))
 
     # ── seuils ──
     specs = defaults["thresholds"]
@@ -150,45 +220,11 @@ def validate(scenario_id: str, payload: dict) -> dict:
         "Confiance du modèle",
     )
 
-    # ── email ──
-    raw_email = payload.get("email") or {}
-    if not isinstance(raw_email, dict):
-        raise ValidationError("email : objet attendu.")
-    enabled = bool(raw_email.get("enabled", False))
-    recipient = str(raw_email.get("recipient") or "").strip()
-    if enabled and not EMAIL_RE.match(recipient):
-        raise ValidationError("email.recipient : adresse invalide.")
-
-    # Sélection par défaut restreinte aux classes actives : sans cela, activer
-    # « téléphone » seul refuserait la configuration à cause du défaut SLEEPING.
-    raw_types = raw_email.get("types")
-    types = (
-        [key for key in defaults["email"]["default_types"] if key in active_thresholds]
-        if raw_types is None
-        else raw_types
-    )
-    if not isinstance(types, list):
-        raise ValidationError("email.types : liste attendue.")
-    unknown_types = set(types) - set(specs)
-    if unknown_types:
-        raise ValidationError(
-            f"email.types contient des événements inconnus : {', '.join(sorted(unknown_types))}"
-        )
-    # Un événement dont la classe est désactivée ne sera jamais produit :
-    # l'accepter reviendrait à promettre un email impossible.
-    inactive_types = [key for key in types if key not in active_thresholds]
-    if inactive_types:
-        labels = ", ".join(specs[key]["label"] for key in inactive_types)
-        raise ValidationError(
-            f"email.types porte sur des classes désactivées : {labels}."
-        )
-    if enabled and not types:
-        raise ValidationError("email.types : sélectionnez au moins un type d'événement.")
-
-    cooldown = _number(
-        raw_email.get("cooldown_minutes", defaults["email"]["cooldown_minutes"].get("default")),
-        defaults["email"]["cooldown_minutes"],
-        "Délai anti-spam",
+    notifications = normalize_notifications(
+        defaults,
+        detections,
+        payload.get("email"),
+        payload.get("sms"),
     )
 
     # ── zones ──
@@ -205,13 +241,27 @@ def validate(scenario_id: str, payload: dict) -> dict:
         "zones": zones,
         "thresholds": thresholds,
         "confidence": confidence,
-        "email": {
-            "enabled": enabled,
-            "recipient": recipient,
-            "types": list(types),
-            "cooldown_minutes": cooldown,
-        },
+        "email": notifications["email"],
+        "sms": notifications["sms"],
     }
+
+
+def normalize_phone(raw: str) -> str:
+    """Normalise un numéro tunisien ou E.164. Chaîne vide si rien n'est saisi."""
+    compact = re.sub(r"[^\d+]", "", (raw or "").strip())
+    if not compact:
+        return ""
+    if compact.startswith("00"):
+        compact = "+" + compact[2:]
+    elif compact.startswith("216") and not compact.startswith("+"):
+        compact = "+" + compact
+    elif compact.isdigit() and len(compact) == 8:
+        compact = "+216" + compact
+    if not E164_RE.match(compact):
+        raise ValueError(
+            "sms.phone : numéro invalide. Utilisez le format international (+216XXXXXXXX)."
+        )
+    return compact
 
 
 def _path(scenario_id: str):

@@ -190,3 +190,14 @@ class KitchenPipeline:
 
     def close_open_occupations(self, now=None):
         return
+
+    def apply_detections(self, detections, models=None):
+        self.detections = set(detections)
+        self.categories = [
+            DETECTION_CATEGORY[key] for key in detections if key in DETECTION_CATEGORY
+        ]
+        self.track_compliance = 'compliance' in self.detections
+        self._alerted &= set(self.categories)
+        stale = [category for category in self._missing_since if category not in self.categories]
+        for category in stale:
+            self._missing_since.pop(category, None)

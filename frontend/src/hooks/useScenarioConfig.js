@@ -24,6 +24,7 @@ const initialState = {
     thresholds: {},
     confidence: 0.15,
     email: { enabled: false, recipient: '', types: [], cooldownMinutes: 5 },
+    sms: { enabled: false, phone: '' },
     zones: [],
     zonesEditing: false,
     save: { status: 'idle', message: '' },
@@ -81,6 +82,7 @@ function reducer(state, action) {
                         saved?.email?.cooldown_minutes ??
                         defaults.email.cooldown_minutes.default,
                 },
+                sms: { enabled: false, phone: '' },
                 // Une configuration rechargée n'est pas une source testée :
                 // le statut repart systématiquement de zéro.
                 test: IDLE_TEST,
@@ -179,6 +181,13 @@ function reducer(state, action) {
             return {
                 ...state,
                 email: { ...state.email, ...action.patch },
+                save: { status: 'idle', message: '' },
+            };
+
+        case 'sms':
+            return {
+                ...state,
+                sms: { ...state.sms, ...action.patch },
                 save: { status: 'idle', message: '' },
             };
 
@@ -292,6 +301,12 @@ export function useScenarioConfig(scenarioId) {
                 types: state.email.types,
                 cooldown_minutes: state.email.cooldownMinutes,
             },
+            sms: {
+                enabled: false,
+                phone: '',
+                types: state.email.types,
+                cooldown_minutes: state.email.cooldownMinutes,
+            },
         }),
         [
             scenarioId,
@@ -331,7 +346,7 @@ export function useScenarioConfig(scenarioId) {
             list.push("l'adresse email de l'administrateur est invalide");
         }
         if (state.email.enabled && state.email.types.length === 0) {
-            list.push('aucun type d\u2019événement ne déclenche d\u2019email');
+            list.push('aucun type d\u2019événement ne déclenche d\u2019alerte');
         }
         return list;
     }, [

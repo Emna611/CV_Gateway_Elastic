@@ -153,6 +153,10 @@ class IngestAndExportTest extends TestCase
 
         $this->getJson('/api/export/alerts?format=csv')->assertStatus(422);
 
+        $this->getJson('/api/export/alerts?session_id=sess-2&format=json')
+            ->assertOk()
+            ->assertJsonPath('ok', true);
+
         $csv = $this->get('/api/export/alerts?from=2026-09-09T00:00:00&to=2026-09-10T00:00:00&format=csv')
             ->assertOk()
             ->streamedContent();
@@ -201,5 +205,94 @@ class IngestAndExportTest extends TestCase
 
             return $mail->hasTo('admin@elastic-solutions.tn');
         });
+    }
+
+    public function test_json_journal_returns_structured_rows_and_snapshot_url(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('snapshots/sess-j/frame.jpg', 'jpeg-bytes');
+
+        OccupationZone::query()->create([
+            'zone_id' => 'z1',
+            'zone_name' => 'Poste 1',
+            'scenario' => 'bureau',
+            'session_id' => 'sess-j',
+            'entered_at' => '2026-09-10 09:00:00',
+            'activity_state' => 'ACTIVE',
+            'created_at' => '2026-09-10 09:00:00',
+        ]);
+
+        $alerte = Alerte::query()->create([
+            'type' => 'SLEEPING',
+            'severity' => 'critical',
+            'scenario' => 'bureau',
+            'zone_name' => 'Poste 1',
+            'session_id' => 'sess-j',
+            'snapshot_path' => 'snapshots/sess-j/frame.jpg',
+            'created_at' => '2026-09-10 09:12:00',
+        ]);
+
+        $this->getJson('/api/export/occupation?from=2026-09-10T00:00:00&scenario=bureau&format=json')
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('count', 1)
+            ->assertJsonPath('rows.0.zone_name', 'Poste 1')
+            ->assertJsonPath('rows.0.open', true);
+
+        $this->getJson('/api/export/alerts?from=2026-09-10T00:00:00&scenario=bureau&format=json')
+            ->assertOk()
+            ->assertJsonPath('rows.0.label', 'Endormissement')
+            ->assertJsonPath('rows.0.snapshot_url', '/api/export/snapshot/'.$alerte->id);
+
+        $this->get('/api/export/snapshot/'.$alerte->id)
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/jpeg');
+    }
+
+    public function test_journal_delete_removes_rows_and_snapshots_for_the_period(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('snapshots/sess-del/frame.jpg', 'jpeg-bytes');
+
+        OccupationZone::query()->create([
+            'zone_id' => 'z1',
+            'zone_name' => 'Poste 1',
+            'scenario' => 'bureau',
+            'session_id' => 'sess-del',
+            'entered_at' => '2026-09-10 09:00:00',
+            'activity_state' => 'ACTIVE',
+            'created_at' => '2026-09-10 09:00:00',
+        ]);
+        OccupationZone::query()->create([
+            'zone_id' => 'z2',
+            'zone_name' => 'Poste cuisine',
+            'scenario' => 'cuisine',
+            'session_id' => 'sess-other',
+            'entered_at' => '2026-09-10 09:00:00',
+            'activity_state' => 'ACTIVE',
+            'created_at' => '2026-09-10 09:00:00',
+        ]);
+        Alerte::query()->create([
+            'type' => 'SLEEPING',
+            'severity' => 'critical',
+            'scenario' => 'bureau',
+            'session_id' => 'sess-del',
+            'snapshot_path' => 'snapshots/sess-del/frame.jpg',
+            'created_at' => '2026-09-10 09:12:00',
+        ]);
+
+        $this->deleteJson('/api/export/journal')->assertStatus(422);
+
+        $this->deleteJson('/api/export/journal?from=2026-09-10T00:00:00&scenario=bureau')
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('deleted.occupations', 1)
+            ->assertJsonPath('deleted.alerts', 1)
+            ->assertJsonPath('deleted.snapshots', 1);
+
+        $this->assertSame(0, OccupationZone::query()->where('scenario', 'bureau')->count());
+        $this->assertSame(1, OccupationZone::query()->where('scenario', 'cuisine')->count());
+        $this->assertSame(0, Alerte::query()->count());
+        Storage::disk('local')->assertMissing('snapshots/sess-del/frame.jpg');
     }
 }

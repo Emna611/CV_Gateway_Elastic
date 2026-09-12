@@ -16,6 +16,13 @@ datasets/
 input_video/
 runs/
 
+# Ateliers YOLO hors périmètre de l'application déployée.
+# Office_Monitoring_v2 est un dépôt git autonome (il possède son propre .git) ;
+# PPE_Restaurant contient des dizaines de milliers d'images et de captures.
+# Ils sont montés en volume au runtime, la CI n'en a pas besoin.
+Office_Monitoring_v2/
+PPE_Restaurant/
+
 # Environnement
 .env
 .env.*

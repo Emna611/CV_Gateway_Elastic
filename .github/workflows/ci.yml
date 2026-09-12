@@ -1,0 +1,46 @@
+# CI : mêmes images Docker que le déploiement, cibles `test` uniquement.
+# Ne construit pas l'image d'inférence avec PyTorch (trop lourde pour un runner).
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  frontend:
+    name: Frontend (build Vite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker test
+        run: docker build -f frontend/Dockerfile --target test frontend
+
+  backend:
+    name: Laravel (PHPUnit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker test
+        run: docker build -f backend/Dockerfile --target test backend
+
+  engine:
+    name: Moteur (syntaxe Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker test
+        run: docker build -f ai_engine/Dockerfile --target test ai_engine
+
+  images:
+    name: Images de runtime
+    needs: [frontend, backend, engine]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build frontend + Laravel
+        run: docker compose build frontend backend
+      - name: Build moteur (sans PyTorch)
+        run: docker compose build ai_engine

@@ -32,13 +32,14 @@ export function Tabs({ options, value, onChange, label }) {
     );
 }
 
-export function Toggle({ checked, onChange, label, id }) {
+export function Toggle({ checked, onChange, label, id, disabled }) {
     return (
-        <label className="toggle" htmlFor={id}>
+        <label className="toggle" htmlFor={id} data-disabled={disabled || undefined}>
             <input
                 id={id}
                 type="checkbox"
                 checked={checked}
+                disabled={disabled}
                 onChange={(event) => onChange(event.target.checked)}
             />
             <span className="toggle__track">
@@ -60,6 +61,7 @@ export function Slider({
     onChange,
     formatValue,
     formatBound,
+    disabled,
 }) {
     const render = formatValue ?? ((raw) => raw);
     const bound = formatBound ?? render;
@@ -79,6 +81,7 @@ export function Slider({
                 max={max}
                 step={step}
                 value={value}
+                disabled={disabled}
                 onChange={(event) => onChange(Number(event.target.value))}
                 aria-label={label}
             />

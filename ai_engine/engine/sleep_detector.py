@@ -12,8 +12,29 @@ import math
 NOSE, L_EYE, R_EYE, L_EAR, R_EAR = 0, 1, 2, 3, 4
 L_SHOULDER, R_SHOULDER = 5, 6
 L_WRIST, R_WRIST = 9, 10
+L_HIP, R_HIP = 11, 12
+L_ANKLE, R_ANKLE = 15, 16
 
 KEYPOINT_CONFIDENCE = 0.3
+STANDING_ASPECT = 1.3
+
+
+def is_standing(box, keypoints=None):
+    """True si la personne est debout (pas assise à un poste)."""
+    x1, y1, x2, y2 = (float(v) for v in box)
+    width = max(x2 - x1, 1e-5)
+    height = y2 - y1
+    if height / width > STANDING_ASPECT:
+        return True
+    if keypoints is None or len(keypoints) <= R_ANKLE:
+        return False
+    l_hip, r_hip = keypoints[L_HIP], keypoints[R_HIP]
+    l_ankle, r_ankle = keypoints[L_ANKLE], keypoints[R_ANKLE]
+    if min(l_hip[2], r_hip[2], l_ankle[2], r_ankle[2]) <= KEYPOINT_CONFIDENCE:
+        return False
+    hip_y = (l_hip[1] + r_hip[1]) / 2
+    ankle_y = (l_ankle[1] + r_ankle[1]) / 2
+    return (ankle_y - hip_y) > height * 0.35
 
 
 def _distance(a, b):
@@ -59,13 +80,11 @@ class SleepDetector:
 
         x1, y1, x2, y2 = box
         width = x2 - x1
-        height = y2 - y1
 
-        # Une personne debout (boîte plus haute que large) n'est pas assise à un
-        # poste : la détection de sommeil ne s'y applique pas.
-        if height / (width + 1e-5) > 1.3:
+        # Une personne debout n'est pas assise à un poste.
+        if is_standing(box, keypoints):
             self.previous_positions.pop(track_id, None)
-            return 'ACTIVE', False, '', True
+            return 'STANDING', False, '', False
 
         moving = self._detect_movement(track_id, nose, l_wrist, r_wrist, width)
         if moving:

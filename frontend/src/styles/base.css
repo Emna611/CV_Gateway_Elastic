@@ -38,10 +38,9 @@ button {
     outline-offset: 2px;
 }
 
-.app-shell {
-    display: flex;
-    flex-direction: column;
-    min-height: 100%;
+.app-shell[data-skin='monitor'],
+.app-shell[data-skin='monitor'] .app-main {
+    background: #060d1a;
 }
 
 .app-main {

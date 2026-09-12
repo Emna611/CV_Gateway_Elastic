@@ -28,7 +28,7 @@ export const SCENARIOS = {
             {
                 code: 'ACTIVE / IDLE',
                 severity: 'info',
-                detail: "qualification de l'état d'activité",
+                detail: "actif dès qu'une personne est dans la zone, inactif hors zone",
             },
             {
                 code: 'FATIGUE',

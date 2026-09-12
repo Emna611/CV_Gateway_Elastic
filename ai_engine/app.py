@@ -33,10 +33,9 @@ def create_app() -> Flask:
 
 
 if __name__ == "__main__":
-    engine_config = settings.CONFIG.get("engine", {})
     create_app().run(
-        host=engine_config.get("host", "127.0.0.1"),
-        port=int(engine_config.get("port", 5000)),
+        host=settings.engine_host(),
+        port=settings.engine_port(),
         threaded=True,
         debug=False,
     )
