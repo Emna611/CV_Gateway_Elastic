@@ -52,6 +52,23 @@ services:
       backend:
         condition: service_started
 
+  # Planificateur : rapport CSV quotidien du temps de travail (report:work-time).
+  scheduler:
+    build:
+      context: ./backend
+    command: php artisan schedule:work
+    env_file:
+      - ./backend/.env
+    environment:
+      APP_URL: http://127.0.0.1:8000
+      FRONTEND_URL: http://localhost:3000
+    volumes:
+      - laravel-db:/var/www/html/database
+      - laravel-storage:/var/www/html/storage
+    depends_on:
+      backend:
+        condition: service_started
+
   ai_engine:
     build:
       context: ./ai_engine

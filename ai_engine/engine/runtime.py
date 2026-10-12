@@ -471,7 +471,6 @@ class EngineSession:
             'failed_step': self.failed_step,
             'detections': self.detections,
             'email': self.config.get('email') or {},
-            'sms': self.config.get('sms') or {},
             'source': {
                 'type': self.config['source']['type'],
                 **{k: v for k, v in self.source_meta.items() if k != 'name'},
@@ -531,19 +530,15 @@ class EngineSession:
             self.config['models'] = settings.active_model_names(self.defaults, detections)
             self.config['requires_zones'] = settings.requires_zones(self.defaults, detections)
             email = dict(self.config.get('email') or {})
-            sms = dict(self.config.get('sms') or {})
             active = set(settings.active_threshold_keys(self.defaults, detections))
             email['types'] = [key for key in email.get('types', []) if key in active]
-            sms['types'] = [key for key in sms.get('types', []) if key in active]
             self.config['email'] = email
-            self.config['sms'] = sms
 
-    def update_notifications(self, email, sms):
-        """Change destinataires et canaux sans arrêter le pipeline."""
+    def update_notifications(self, email):
+        """Change destinataire et types d'alerte sans arrêter le pipeline."""
         if self.state != 'running':
             raise EngineError("L'analyse n'est pas en cours.")
         self.config['email'] = email
-        self.config['sms'] = sms
 
     # ── arrêt ──
 

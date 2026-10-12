@@ -1,0 +1,205 @@
+/* Style commun des figures d'architecture CV-Gateway Elastic.
+   Les pages sont rendues en PNG par Chrome headless (voir render.ps1) :
+   la largeur de chaque figure est fixee par .sheet, la hauteur suit. */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background: #f1f3f6;
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    color: #101828;
+    -webkit-font-smoothing: antialiased;
+}
+
+.sheet {
+    position: relative;
+    background: #f1f3f6;
+    padding: 46px 52px 30px;
+}
+
+/* ── titraille ── */
+
+h1 {
+    font-size: 38px;
+    font-weight: 700;
+    letter-spacing: -0.6px;
+    color: #0f1b3d;
+}
+
+.subtitle {
+    margin-top: 9px;
+    font-size: 17px;
+    color: #667085;
+}
+
+/* ── plan de dessin : tout est positionne en absolu ── */
+
+.canvas { position: relative; margin-top: 34px; }
+
+/* Ordre d'empilement : cadres de groupe au fond, puis les fleches,
+   puis les cartes et les etiquettes. Sans cela le fond teinte d'un
+   groupe masque les fleches tracees a l'interieur. */
+.canvas svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.canvas > .group { z-index: 1; }
+.canvas > .card,
+.canvas > .note,
+.canvas > .tag,
+.canvas > .actor { z-index: 3; }
+
+/* ── cartes ── */
+
+.card {
+    position: absolute;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.09), 0 1px 2px rgba(16, 24, 40, 0.05);
+    padding: 16px 20px 17px 22px;
+    overflow: hidden;
+}
+
+.card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: var(--accent, #98a2b3);
+}
+
+.card h3 {
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: #101828;
+}
+
+.card p {
+    margin-top: 7px;
+    font-size: 14.5px;
+    line-height: 1.52;
+    color: #475467;
+}
+
+.card p.muted { color: #667085; }
+
+.card p + p { margin-top: 11px; }
+
+/* Carte sans barre laterale (encadres secondaires). */
+.card.plain::before { display: none; }
+.card.plain { padding-left: 20px; }
+
+/* ── groupes (un service = un cadre teinte) ── */
+
+.group {
+    position: absolute;
+    border-radius: 15px;
+    border: 1px solid var(--group-border, #e4e7ec);
+    background: var(--group-bg, #fafbfc);
+}
+
+.group > .group-label {
+    position: absolute;
+    top: 17px;
+    left: 22px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #101828;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+}
+
+.group > .group-label::before {
+    content: "";
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--group-dot, #98a2b3);
+    flex: none;
+}
+
+.group.dashed { border-style: dashed; border-width: 1.5px; }
+
+.group .group-sub {
+    position: absolute;
+    top: 43px;
+    left: 22px;
+    font-size: 14px;
+    color: #667085;
+}
+
+/* ── etiquettes posees sur les fleches ── */
+
+.tag {
+    position: absolute;
+    font-size: 13.5px;
+    color: #667085;
+    background: var(--tag-bg, #f1f3f6);
+    padding: 2px 7px;
+    line-height: 1.4;
+    text-align: center;
+    white-space: nowrap;
+    transform: translate(-50%, -50%);
+}
+
+.tag.wrap { white-space: normal; }
+
+/* Etiquette encadree (note posee sur le schema). */
+.note {
+    position: absolute;
+    background: #fffaf2;
+    border: 1.5px dashed #f0c088;
+    border-radius: 10px;
+    padding: 13px 17px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: #7a4f13;
+}
+
+.note b { color: #63400d; font-weight: 600; }
+
+/* ── acteur ── */
+
+.actor {
+    position: absolute;
+    text-align: center;
+    width: 170px;
+}
+
+.actor .name { margin-top: 10px; font-size: 17px; font-weight: 600; }
+.actor .role { margin-top: 4px; font-size: 14px; color: #667085; line-height: 1.45; }
+
+/* ── pied de figure ── */
+
+.footer {
+    margin-top: 30px;
+    padding-top: 18px;
+    border-top: 1px solid #e0e3e9;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 40px;
+    font-size: 13.5px;
+    color: #98a2b3;
+}
+
+.legend { display: flex; gap: 34px; flex-wrap: wrap; }
+.legend .item { display: flex; align-items: center; gap: 10px; color: #667085; }
+
+.legend .line { width: 40px; height: 0; border-top: 2px solid #98a2b3; }
+.legend .line.dash { border-top-style: dashed; }
+
+.legend .swatch { width: 13px; height: 13px; border-radius: 3px; }
+
+.source { text-align: right; line-height: 1.5; flex: none; }

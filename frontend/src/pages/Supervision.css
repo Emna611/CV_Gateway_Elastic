@@ -485,6 +485,14 @@
     border-radius: var(--radius-md);
 }
 
+.cabin[data-alert='LIBRE'] {
+    border-color: var(--danger);
+}
+
+.cabin[data-alert='ACTIVE'] {
+    border-color: var(--success);
+}
+
 .cabin[data-alert='SLEEPING'] {
     border-color: var(--danger);
 }

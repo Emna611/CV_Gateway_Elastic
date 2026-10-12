@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Architecture CV-Gateway Elastic</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        background: #0B0F19;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        color: #F8FAFC;
+        width: 2400px;
+        height: 1350px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    /* Ambient background glows */
+    .glow-cyan {
+        position: absolute;
+        width: 700px;
+        height: 700px;
+        left: 50px;
+        top: 200px;
+        background: radial-gradient(circle, rgba(6, 182, 212, 0.08) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .glow-purple {
+        position: absolute;
+        width: 800px;
+        height: 800px;
+        left: 850px;
+        top: 250px;
+        background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .glow-red {
+        position: absolute;
+        width: 700px;
+        height: 700px;
+        right: 100px;
+        top: 200px;
+        background: radial-gradient(circle, rgba(239, 68, 68, 0.08) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    /* Main Container */
+    .container {
+        padding: 50px 70px 40px 70px;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    /* Header */
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        padding-bottom: 28px;
+    }
+
+    .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+    }
+
+    .logo-badge {
+        background: linear-gradient(135deg, #2563EB, #06B6D4);
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 25px rgba(37, 99, 235, 0.5);
+    }
+
+    .logo-badge svg {
+        width: 30px;
+        height: 30px;
+        fill: none;
+        stroke: white;
+        stroke-width: 2.2;
+    }
+
+    .title-col h1 {
+        font-size: 38px;
+        font-weight: 800;
+        letter-spacing: -0.8px;
+        background: linear-gradient(to right, #FFFFFF, #CBD5E1);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .title-col p {
+        font-size: 16.5px;
+        color: #94A3B8;
+        margin-top: 4px;
+        font-weight: 500;
+    }
+
+    .meta-pills {
+        display: flex;
+        gap: 12px;
+    }
+
+    .pill {
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 8px 16px;
+        border-radius: 30px;
+        font-size: 13.5px;
+        font-weight: 600;
+        color: #E2E8F0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        backdrop-filter: blur(8px);
+    }
+
+    .pill-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+    .dot-green { background: #10B981; box-shadow: 0 0 10px #10B981; }
+    .dot-cyan { background: #06B6D4; box-shadow: 0 0 10px #06B6D4; }
+    .dot-purple { background: #A855F7; box-shadow: 0 0 10px #A855F7; }
+
+    /* Grid Layout */
+    .grid {
+        display: grid;
+        grid-template-columns: 460px 720px 580px 420px;
+        gap: 28px;
+        margin-top: 24px;
+        flex-grow: 1;
+        position: relative;
+    }
+
+    /* Column Cards */
+    .col-card {
+        background: rgba(15, 23, 42, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        padding: 26px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        backdrop-filter: blur(12px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.35);
+        position: relative;
+    }
+
+    .col-card.accent-cyan {
+        border-top: 4px solid #06B6D4;
+    }
+    .col-card.accent-purple {
+        border-top: 4px solid #8B5CF6;
+        background: rgba(17, 24, 48, 0.75);
+    }
+    .col-card.accent-red {
+        border-top: 4px solid #EF4444;
+    }
+    .col-card.accent-amber {
+        border-top: 4px solid #F59E0B;
+    }
+
+    .col-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        padding-bottom: 14px;
+    }
+
+    .col-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .col-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .col-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .icon-cyan { background: rgba(6, 182, 212, 0.15); color: #06B6D4; }
+    .icon-purple { background: rgba(139, 92, 246, 0.15); color: #8B5CF6; }
+    .icon-red { background: rgba(239, 68, 68, 0.15); color: #EF4444; }
+    .icon-amber { background: rgba(245, 158, 11, 0.15); color: #F59E0B; }
+
+    .col-title h2 {
+        font-size: 19px;
+        font-weight: 700;
+        color: #F8FAFC;
+    }
+
+    .port-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #94A3B8;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Sub-blocks inside column */
+    .block {
+        background: rgba(30, 41, 59, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 14px;
+        padding: 16px 18px;
+    }
+
+    .block-title {
+        font-size: 14.5px;
+        font-weight: 700;
+        color: #F1F5F9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .block-desc {
+        font-size: 13px;
+        color: #94A3B8;
+        line-height: 1.5;
+    }
+
+    .feature-list {
+        list-style: none;
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .feature-item {
+        font-size: 12.5px;
+        color: #CBD5E1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .bullet {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #64748B;
+    }
+
+    .bullet-cyan { background: #06B6D4; }
+    .bullet-purple { background: #8B5CF6; }
+    .bullet-red { background: #EF4444; }
+    .bullet-green { background: #10B981; }
+
+    /* Model Badges */
+    .badge-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .model-badge {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11.5px;
+        font-weight: 600;
+        padding: 5px 10px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .badge-yolo {
+        background: rgba(139, 92, 246, 0.2);
+        color: #C084FC;
+        border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+    .badge-pose {
+        background: rgba(6, 182, 212, 0.2);
+        color: #67E8F9;
+        border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+    .badge-ppe {
+        background: rgba(16, 185, 129, 0.2);
+        color: #6EE7B7;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    /* Flow Connectors Overlay */
+    .flow-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+
+    .flow-http {
+        background: rgba(59, 130, 246, 0.15);
+        color: #60A5FA;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    .flow-mjpeg {
+        background: rgba(6, 182, 212, 0.15);
+        color: #22D3EE;
+        border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+    .flow-ingest {
+        background: rgba(239, 68, 68, 0.15);
+        color: #F87171;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .flow-queue {
+        background: rgba(245, 158, 11, 0.15);
+        color: #FBBF24;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    /* Footer & Key Strengths Bar */
+    .footer-bar {
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 16px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        backdrop-filter: blur(10px);
+        margin-top: 20px;
+    }
+
+    .kpi-row {
+        display: flex;
+        gap: 40px;
+    }
+
+    .kpi-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .kpi-val {
+        font-size: 20px;
+        font-weight: 800;
+        color: #FFFFFF;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .kpi-label {
+        font-size: 11.5px;
+        font-weight: 600;
+        color: #94A3B8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .legend-row {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        font-size: 13px;
+        color: #94A3B8;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .legend-line {
+        width: 24px;
+        height: 2.5px;
+        border-radius: 2px;
+    }
+    .line-sync { background: #3B82F6; }
+    .line-async { background: #F59E0B; stroke-dasharray: 4; }
+    .line-stream { background: #06B6D4; }
+
+</style>
+</head>
+<body>
+
+<div class="glow-cyan"></div>
+<div class="glow-purple"></div>
+<div class="glow-red"></div>
+
+<div class="container">
+
+    <!-- Header Section -->
+    <div class="header">
+        <div class="brand-row">
+            <div class="logo-badge">
+                <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+            <div class="title-col">
+                <h1>CV-Gateway Elastic &mdash; Architecture Système & Services</h1>
+                <p>Plateforme de Vision Cognitive Multi-Scénario &middot; Conteneurisation Docker &middot; Inférence Temps Réel &middot; Traçabilité Réglementaire</p>
+            </div>
+        </div>
+        <div class="meta-pills">
+            <div class="pill"><span class="pill-dot dot-green"></span> 4 Conteneurs Isolés</div>
+            <div class="pill"><span class="pill-dot dot-cyan"></span> Latence Inférence &lt; 2s</div>
+            <div class="pill"><span class="pill-dot dot-purple"></span> Transfer Learning YOLO11</div>
+            <div class="pill">Elastic Solutions &middot; TEK-UP 2026</div>
+        </div>
+    </div>
+
+    <!-- Main Architecture Grid -->
+    <div class="grid">
+
+        <!-- Column 1: Client & Presentation -->
+        <div class="col-card accent-cyan">
+            <div class="col-header">
+                <div class="col-title">
+                    <div class="col-icon icon-cyan">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+                    </div>
+                    <div>
+                        <h2>Frontend UI</h2>
+                        <span style="font-size:12px; color:#64748B;">Nginx + React 19 / Vite</span>
+                    </div>
+                </div>
+                <span class="port-tag">:3000</span>
+            </div>
+
+            <!-- Block: User Experience -->
+            <div class="block">
+                <div class="block-title">
+                    <svg width="16" height="16" fill="none" stroke="#06B6D4" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Poste Opérateur (Navigateur)
+                </div>
+                <p class="block-desc">Interface ergonomique unique pour la configuration interactive, le suivi en direct et l'audit.</p>
+                <ul class="feature-list">
+                    <li class="feature-item"><span class="bullet bullet-cyan"></span> Assistant en 3 étapes (Scénario, Source, Activation)</li>
+                    <li class="feature-item"><span class="bullet bullet-cyan"></span> Éditeur de polygones normalisés (0 à 1)</li>
+                    <li class="feature-item"><span class="bullet bullet-cyan"></span> Visualiseur MJPEG à faible latence</li>
+                    <li class="feature-item"><span class="bullet bullet-cyan"></span> Réglage dynamique des seuils à chaud</li>
+                </ul>
+            </div>
+
+            <!-- Block: Reverse Proxy -->
+            <div class="block">
+                <div class="block-title">
+                    <svg width="16" height="16" fill="none" stroke="#06B6D4" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>
+                    Proxy Inverse Intégré
+                </div>
+                <p class="block-desc">Routage transparent des flux sans exposition directe des ports de service internes :</p>
+                <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px; font-family:'JetBrains Mono',monospace; font-size:11.5px;">
+                    <div style="color:#67E8F9;">/api &rarr; ai_engine:5000</div>
+                    <div style="color:#FCA5A5;">/api/export &rarr; backend:8000</div>
+                </div>
+            </div>
+
+            <!-- Block: Zero-State Footprint -->
+            <div class="block" style="background:rgba(6, 182, 212, 0.08); border-color:rgba(6, 182, 212, 0.2);">
+                <div class="block-title" style="color:#22D3EE; font-size:13px;">Garantie d'Isolement</div>
+                <p class="block-desc" style="color:#CBD5E1; font-size:12px;">Aucune base de données locale, aucune inférence exécutée sur le client. SPA 100% découplée.</p>
+            </div>
+        </div>
+
+        <!-- Column 2: AI Inference Engine -->
+        <div class="col-card accent-purple">
+            <div class="col-header">
+                <div class="col-title">
+                    <div class="col-icon icon-purple">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14h-2v-2h2zm0-4h-2V7h2z"/></svg>
+                    </div>
+                    <div>
+                        <h2>Moteur d'Inférence IA</h2>
+                        <span style="font-size:12px; color:#A78BFA;">Python 3.11 &middot; Flask &middot; Ultralytics &middot; OpenCV</span>
+                    </div>
+                </div>
+                <span class="port-tag">:5000</span>
+            </div>
+
+            <!-- Acquisition & Preprocessing -->
+            <div class="block">
+                <div class="block-title">
+                    <span class="flow-badge flow-mjpeg">Acquisition</span>
+                    Sources & Vidéo Ingestion
+                </div>
+                <p class="block-desc">Gestionnaire multi-sources avec adaptation temps réel :</p>
+                <ul class="feature-list" style="margin-top:6px;">
+                    <li class="feature-item"><span class="bullet bullet-purple"></span> <strong>RTSP :</strong> Thread grabber dédié anti-dérive de tampon (Zéro lag)</li>
+                    <li class="feature-item"><span class="bullet bullet-purple"></span> <strong>Fichiers MP4 :</strong> Lecture calée au FPS source pour mesures fiables</li>
+                    <li class="feature-item"><span class="bullet bullet-purple"></span> <strong>Webcam / YouTube :</strong> Décodage avec extraction d'image de calibration</li>
+                </ul>
+            </div>
+
+            <!-- Core Pipelines -->
+            <div class="block">
+                <div class="block-title">
+                    <span class="flow-badge flow-http">Pipelines Métier</span>
+                    Analyse Comportementale & Conformité
+                </div>
+                
+                <div style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <!-- Office -->
+                    <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);">
+                        <strong style="color:#C084FC; font-size:13px;">Scénario Bureau</strong>
+                        <ul class="feature-list" style="margin-top:6px; font-size:11.5px;">
+                            <li>&bull; 17 keypoints du corps (yolo11m-pose)</li>
+                            <li>&bull; Inclinaison tête &gt; 45&deg; (somnolence)</li>
+                            <li>&bull; Posture affaissée (fatigue)</li>
+                            <li>&bull; Recouvrement téléphone (IoU &gt; 50%)</li>
+                            <li>&bull; Présence buste par zone polygonale</li>
+                        </ul>
+                    </div>
+                    <!-- Kitchen -->
+                    <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);">
+                        <strong style="color:#6EE7B7; font-size:13px;">Scénario Cuisine</strong>
+                        <ul class="feature-list" style="margin-top:6px; font-size:11.5px;">
+                            <li>&bull; 6 classes PPE (bestfinal.pt)</li>
+                            <li>&bull; Gants : seuil 0.35 (rappel critique)</li>
+                            <li>&bull; Charlotte : seuil 0.65</li>
+                            <li>&bull; Tablier : seuil 0.30</li>
+                            <li>&bull; Fenêtre de conformité totale 3/3</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Models Used -->
+                <div class="badge-group">
+                    <span class="model-badge badge-pose">yolo11m-pose.pt (40.5 Mo)</span>
+                    <span class="model-badge badge-yolo">phone_model.pt (5.2 Mo)</span>
+                    <span class="model-badge badge-ppe">bestfinal.pt (5.9 Mo)</span>
+                </div>
+            </div>
+
+            <!-- Temporal Filter & Warmup -->
+            <div class="block">
+                <div class="block-title" style="color:#E2E8F0;">
+                    <svg width="16" height="16" fill="none" stroke="#F59E0B" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Moteur de Règles & Confirmation Temporelle
+                </div>
+                <p class="block-desc">Élimination des faux positifs : un état n'est levé en alerte que s'il persiste au-delà des seuils (Zone 3s &middot; Fatigue 10s &middot; Sommeil 30s &middot; EPI 5s). Warmup Torch en arrière-plan au boot.</p>
+            </div>
+        </div>
+
+        <!-- Column 3: Backend & Data Management -->
+        <div class="col-card accent-red">
+            <div class="col-header">
+                <div class="col-title">
+                    <div class="col-icon icon-red">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                    </div>
+                    <div>
+                        <h2>Backend API</h2>
+                        <span style="font-size:12px; color:#F87171;">Laravel 12 &middot; PHP 8.2</span>
+                    </div>
+                </div>
+                <span class="port-tag">:8000</span>
+            </div>
+
+            <!-- Ingest Security -->
+            <div class="block">
+                <div class="block-title">
+                    <span class="flow-badge flow-ingest">Ingestion Sécurisée</span>
+                    Middleware & Validation
+                </div>
+                <p class="block-desc">Contrôle strict des flux d'ingestion provenant du moteur IA :</p>
+                <ul class="feature-list" style="margin-top:6px;">
+                    <li class="feature-item"><span class="bullet bullet-red"></span> Authentification par jeton <code>X-Ingest-Token</code></li>
+                    <li class="feature-item"><span class="bullet bullet-red"></span> Traitement asynchrone non bloquant pour l'IA</li>
+                    <li class="feature-item"><span class="bullet bullet-red"></span> Ingestion multipart : métadonnées JSON + Snapshot JPEG</li>
+                </ul>
+            </div>
+
+            <!-- Database & Persistence -->
+            <div class="block">
+                <div class="block-title">
+                    <svg width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                    Persistance & Volumes Dédiés
+                </div>
+                <p class="block-desc">Archivage structuré pour conformité légale et audit qualité :</p>
+                <ul class="feature-list" style="margin-top:6px;">
+                    <li class="feature-item"><span class="bullet bullet-red"></span> <strong>OccupationZone :</strong> Entrée, sortie, durée cumulée</li>
+                    <li class="feature-item"><span class="bullet bullet-red"></span> <strong>Alerte :</strong> Type, sévérité, caméra, snapshot path</li>
+                    <li class="feature-item"><span class="bullet bullet-red"></span> <strong>EmailCooldown :</strong> Mémoire anti-spam par canal</li>
+                    <li class="feature-item"><span class="bullet bullet-red"></span> <strong>Export CSV :</strong> UTF-8 avec BOM et séparateur français</li>
+                </ul>
+            </div>
+
+            <!-- Queue Dispatcher -->
+            <div class="block">
+                <div class="block-title" style="color:#FCA5A5;">
+                    <svg width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    File d'Attente des Tâches
+                </div>
+                <p class="block-desc">Enregistrement des jobs d'alerte en base (driver database). Zéro impact sur le débit d'ingestion des caméras.</p>
+            </div>
+        </div>
+
+        <!-- Column 4: Notification & Automation -->
+        <div class="col-card accent-amber">
+            <div class="col-header">
+                <div class="col-title">
+                    <div class="col-icon icon-amber">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    </div>
+                    <div>
+                        <h2>Notification Worker</h2>
+                        <span style="font-size:12px; color:#FBBF24;">Laravel Queue:work</span>
+                    </div>
+                </div>
+                <span class="port-tag">Worker</span>
+            </div>
+
+            <!-- Queue Worker -->
+            <div class="block">
+                <div class="block-title">
+                    <span class="flow-badge flow-queue">Job Asynchrone</span>
+                    SendAlertEmail
+                </div>
+                <p class="block-desc">Dépilement continu des alertes avec politique de relance automatique (3 essais, timeout 120s).</p>
+            </div>
+
+            <!-- Email Notification -->
+            <div class="block">
+                <div class="block-title">
+                    <svg width="16" height="16" fill="none" stroke="#F59E0B" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    Passerelle SMTP Gmail
+                </div>
+                <p class="block-desc">Génération de notifications riches certifiées pour l'audit :</p>
+                <ul class="feature-list" style="margin-top:6px;">
+                    <li class="feature-item"><span class="bullet bullet-green"></span> Capture JPEG intégrée en pièce jointe <strong>inline (cid:)</strong></li>
+                    <li class="feature-item"><span class="bullet bullet-green"></span> Horodatage complet à la seconde + fuseau</li>
+                    <li class="feature-item"><span class="bullet bullet-green"></span> Durée observée avant déclenchement</li>
+                    <li class="feature-item"><span class="bullet bullet-green"></span> Lien direct vers la supervision</li>
+                </ul>
+            </div>
+
+            <!-- Cooldown Anti-flood -->
+            <div class="block" style="background:rgba(245, 158, 11, 0.08); border-color:rgba(245, 158, 11, 0.2);">
+                <div class="block-title" style="color:#FBBF24; font-size:13px;">Anti-Spam Intelligent</div>
+                <p class="block-desc" style="color:#E2E8F0; font-size:12px;">Cooldown paramétrable par type d'alerte et destinataire. Empêche la saturation de la boîte mail en cas d'infraction prolongée.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bottom Key Indicators and Architecture Highlights -->
+    <div class="footer-bar">
+        <div class="kpi-row">
+            <div class="kpi-item">
+                <span class="kpi-val">98.9%</span>
+                <span class="kpi-label">mAP@50 Modèle Bureau</span>
+            </div>
+            <div class="kpi-item">
+                <span class="kpi-val">90.9%</span>
+                <span class="kpi-label">mAP@50 Modèle Cuisine</span>
+            </div>
+            <div class="kpi-item">
+                <span class="kpi-val">&lt; 2.0 s</span>
+                <span class="kpi-label">Latence Bout-en-Bout</span>
+            </div>
+            <div class="kpi-item">
+                <span class="kpi-val">17 / 17</span>
+                <span class="kpi-label">Tests Intégration CI Validés</span>
+            </div>
+            <div class="kpi-item">
+                <span class="kpi-val">1 Commande</span>
+                <span class="kpi-label">Déploiement Docker Compose</span>
+            </div>
+        </div>
+
+        <div class="legend-row">
+            <div class="legend-item">
+                <span class="legend-line line-sync"></span>
+                <span>Requête Synchrone (HTTP REST / Proxy)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-line line-stream"></span>
+                <span>Flux Vidéo Annoté (MJPEG Stream)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-line line-async"></span>
+                <span>File Asynchrone / Non-Bloquante</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>

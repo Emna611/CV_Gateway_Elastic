@@ -23,8 +23,9 @@ PERSON_KEYPOINT_CONF = 0.25
 PRIORITY = {'SLEEPING': 3, 'FATIGUE': 2, 'ON_PHONE': 1, 'IDLE': 0, 'ACTIVE': 0, 'STANDING': 0}
 
 STATE_COLORS = {
-    'ACTIVE': (99, 190, 74),
-    'IDLE': (150, 150, 150),
+    'ACTIVE': (80, 190, 70),
+    'LIBRE': (50, 50, 230),
+    'IDLE': (80, 190, 70),
     'STANDING': (180, 120, 180),
     'ON_PHONE': (6, 165, 217),
     'FATIGUE': (6, 119, 217),
@@ -354,6 +355,10 @@ class OfficePipeline:
                 if not state['occupied']:
                     state['entered_at'] = now
                     self._emit_occupation('enter', zone, activity, entered_at=now)
+                    # Occupation confirmée après le seuil zone_occupied : c'est
+                    # l'alerte informative ZONE_OCCUPIED, sélectionnable pour
+                    # l'email comme les autres types déclarés dans config.yaml.
+                    self._emit('ZONE_OCCUPIED', zone, occupants, duration=now - since)
                 elif activity != state['activity_state']:
                     duration = now - (state['entered_at'] or now)
                     self._emit_occupation(
@@ -393,7 +398,7 @@ class OfficePipeline:
             state['alert'] = alert if occupied else 'IDLE'
             state['has_laptop'] = False
 
-    def _emit(self, alert_type, zone, occupants):
+    def _emit(self, alert_type, zone, occupants, duration=None):
         self.events.append(
             {
                 'type': alert_type,
@@ -401,6 +406,7 @@ class OfficePipeline:
                 'zone_id': zone['id'],
                 'zone_name': zone['name'],
                 'occupants': [person['id'] for person in occupants],
+                'duration': None if duration is None else round(float(duration), 1),
                 'at': time.time(),
             }
         )
@@ -453,14 +459,15 @@ class OfficePipeline:
         if self.track_zones:
             for zone in self.zones:
                 state = self.zone_state[zone['id']]
-                color_key = 'IDLE'
                 if state['occupied']:
                     color_key = (
                         state['alert']
                         if state['alert'] in ('SLEEPING', 'FATIGUE', 'ON_PHONE')
-                        else state['activity_state']
+                        else 'ACTIVE'
                     )
-                color = STATE_COLORS.get(color_key, (150, 150, 150))
+                else:
+                    color_key = 'LIBRE'
+                color = STATE_COLORS.get(color_key, (50, 50, 230))
                 polygon = self.polygon_pixels(zone, width, height)
                 overlay = frame.copy()
                 cv2.fillPoly(overlay, [polygon], color)

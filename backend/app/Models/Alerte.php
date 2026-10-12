@@ -11,6 +11,7 @@ class Alerte extends Model
     protected $table = 'alertes';
 
     public const LABELS = [
+        'ZONE_OCCUPIED' => 'Poste occupé',
         'SLEEPING' => 'Endormissement',
         'FATIGUE' => 'Fatigue',
         'ON_PHONE' => 'Téléphone',

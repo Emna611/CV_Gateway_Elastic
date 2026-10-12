@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<style>
+    .sheet { width: 2000px; }
+    .canvas { height: 800px; }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+    <h1>Architecture CV-Gateway Elastic &mdash; graphe des services</h1>
+    <p class="subtitle">Trois processus HTTP autonomes + un worker de file &middot; un port, un stockage et un contrat par binaire &mdash; ni service mesh ni registry</p>
+
+    <div class="canvas">
+
+        <svg viewBox="0 0 1896 800" preserveAspectRatio="none">
+            <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#98a2b3"/>
+                </marker>
+            </defs>
+            <g fill="none" stroke="#98a2b3" stroke-width="1.8" marker-end="url(#arrow)">
+                <!-- operateur -> frontend -->
+                <path d="M 186 300 L 234 300"/>
+                <!-- frontend -> ai_engine (API REST) -->
+                <path d="M 549 288 L 644 288"/>
+                <!-- ai_engine -> frontend (flux annote) -->
+                <path d="M 644 400 L 549 400" stroke-dasharray="7 6"/>
+                <!-- ai_engine -> backend (ingestion, file interne) -->
+                <path d="M 994 162 L 1144 162" stroke-dasharray="7 6"/>
+                <!-- ai_engine -> backend (notify synchrone) -->
+                <path d="M 994 452 L 1144 452"/>
+                <!-- backend -> worker -->
+                <path d="M 1514 175 L 1564 175"/>
+                <!-- worker -> SMTP -->
+                <path d="M 1733 254 L 1733 296"/>
+                <!-- frontend -> backend : export, par-dessus le schema -->
+                <path d="M 392 141 L 392 12 L 1320 12 L 1320 36"/>
+                <!-- entrees du moteur -->
+                <path d="M 737 676 L 737 644"/>
+                <path d="M 954 676 L 954 644"/>
+            </g>
+        </svg>
+
+        <!-- ───────────── operateur ───────────── -->
+        <div class="actor" style="left:8px; top:252px;">
+            <svg width="86" height="92" viewBox="0 0 86 92" style="position:static; width:86px; height:92px;">
+                <g fill="none" stroke="#344054" stroke-width="3.4" stroke-linecap="round">
+                    <circle cx="43" cy="16" r="13"/>
+                    <path d="M 43 30 L 43 62 M 14 43 L 72 43 M 43 62 L 22 89 M 43 62 L 64 89"/>
+                </g>
+            </svg>
+            <div class="name">Op&eacute;rateur</div>
+            <div class="role">navigateur<br>localhost:3000<br>un seul poste</div>
+        </div>
+
+        <!-- ───────────── frontend ───────────── -->
+        <div class="card" style="--accent:#0d9488; left:240px; top:145px; width:309px; height:300px;">
+            <h3>frontend Vite :3000</h3>
+            <p>React &middot; SPA<br>aucune inf&eacute;rence, aucune base</p>
+            <p>/ &rarr; choix du sc&eacute;nario<br>/scenario/:id &rarr; config<br>/engine/:id &rarr; d&eacute;marrage<br>/supervision/:id &rarr; live</p>
+            <p>proxy /api/export &rarr; :8000<br>proxy /api &rarr; :5000</p>
+        </div>
+
+        <!-- ───────────── ai_engine ───────────── -->
+        <div class="group" style="--group-bg:#eff6ff; --group-border:#d8e6fd; --group-dot:#2563eb; left:630px; top:40px; width:384px; height:604px;">
+            <div class="group-label">ai_engine &middot; Flask :5000</div>
+        </div>
+
+        <div class="card" style="--accent:#3b82f6; left:650px; top:100px; width:344px; height:128px;">
+            <h3>API HTTP</h3>
+            <p>/config &middot; /source &middot; /engine<br>/engine/stream &rarr; MJPEG annot&eacute;<br>/email &rarr; proxy notify</p>
+        </div>
+
+        <div class="card" style="--accent:#3b82f6; left:650px; top:248px; width:344px; height:138px;">
+            <h3>EngineSession</h3>
+            <p>une session &agrave; la fois<br>thread : source &rarr; YOLO &rarr; pipeline<br>warmup Torch au d&eacute;marrage</p>
+        </div>
+
+        <div class="card" style="--accent:#3b82f6; left:650px; top:406px; width:344px; height:96px;">
+            <h3>Pipelines</h3>
+            <p>OfficePipeline &middot; bureau<br>KitchenPipeline &middot; cuisine</p>
+        </div>
+
+        <div class="card" style="--accent:#3b82f6; left:650px; top:522px; width:344px; height:100px;">
+            <h3>Stockage local</h3>
+            <p>data/configs/*.json (config op&eacute;rateur)<br>data/frames/ (aper&ccedil;us de zones)</p>
+        </div>
+
+        <!-- ───────────── backend ───────────── -->
+        <div class="group" style="--group-bg:#fef6f4; --group-border:#fbdfd7; --group-dot:#ef4444; left:1130px; top:40px; width:384px; height:604px;">
+            <div class="group-label">backend &middot; Laravel :8000</div>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:1150px; top:100px; width:344px; height:128px;">
+            <h3>Ingest &middot; X-Ingest-Token</h3>
+            <p>/api/ingest/occupations<br>/api/ingest/alerts (+ JPEG)<br>/api/ingest/sessions/{id}/close</p>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:1150px; top:248px; width:344px; height:138px;">
+            <h3>Export &middot; lu par le dashboard</h3>
+            <p>/api/export/occupation &middot; /alerts<br>/api/export/snapshot/{id}<br>DELETE /api/export/journal</p>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:1150px; top:406px; width:344px; height:96px;">
+            <h3>Notify</h3>
+            <p>statut + test SMTP<br>cooldown anti-spam par type</p>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:1150px; top:522px; width:344px; height:100px;">
+            <h3>SQLite + fichiers</h3>
+            <p>occupation_zones &middot; alertes &middot; jobs<br>email_cooldowns &middot; storage/app/snapshots</p>
+        </div>
+
+        <!-- ───────────── worker + SMTP ───────────── -->
+        <div class="card" style="--accent:#f59e0b; left:1564px; top:100px; width:332px; height:154px;">
+            <h3>worker &middot; queue:work</h3>
+            <p>SendAlertEmail (seul job)<br>QUEUE_CONNECTION=database<br>sans lui : alertes en file, jamais livr&eacute;es</p>
+        </div>
+
+        <div class="card" style="--accent:#16a34a; left:1564px; top:296px; width:332px; height:168px;">
+            <h3>SMTP Gmail</h3>
+            <p>MAIL_USERNAME / MAIL_PASSWORD<br>seul canal d'alerte du produit</p>
+            <p class="muted">capture JPEG int&eacute;gr&eacute;e (cid:)<br>+ horodatage d&eacute;taill&eacute;</p>
+        </div>
+
+        <!-- ───────────── entrees du moteur ───────────── -->
+        <div class="card" style="--accent:#98a2b3; left:650px; top:676px; width:186px; height:112px;">
+            <h3>Source vid&eacute;o</h3>
+            <p>webcam &middot; RTSP<br>fichier</p>
+        </div>
+
+        <div class="card" style="--accent:#98a2b3; left:852px; top:676px; width:204px; height:112px;">
+            <h3>Poids YOLO (.pt)</h3>
+            <p>Office_Monitoring_v2<br>PPE_Restaurant</p>
+        </div>
+
+        <!-- ───────────── etiquettes ───────────── -->
+        <div class="tag" style="left:210px; top:286px;">UI</div>
+        <div class="tag" style="left:597px; top:274px;">/api</div>
+        <div class="tag" style="left:597px; top:386px;">MJPEG</div>
+        <div class="tag" style="left:1069px; top:148px;">ingest &middot; file</div>
+        <div class="tag" style="left:1069px; top:438px;">notify &middot; sync</div>
+        <div class="tag" style="left:1539px; top:161px;">jobs</div>
+        <div class="tag" style="left:1733px; top:275px;">e-mail</div>
+        <div class="tag" style="left:856px; top:12px;">/api/export &middot; journal, captures, purge</div>
+
+    </div>
+
+    <div class="footer">
+        <div class="legend">
+            <div class="item"><span class="line"></span> appel HTTP synchrone</div>
+            <div class="item"><span class="line dash"></span> file interne, asynchrone &mdash; un &eacute;chec Laravel n'arr&ecirc;te pas le moteur</div>
+        </div>
+        <div class="source">Source : d&eacute;p&ocirc;t cv_gatway &mdash; routes/api.php &middot; engine/api.py &middot; vite.config.js (septembre 2026)</div>
+    </div>
+
+</div>
+</body>
+</html>

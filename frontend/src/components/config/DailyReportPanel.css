@@ -1,0 +1,80 @@
+/* Panneau « Rapport quotidien — temps de travail » (scénario bureau). */
+
+.report__row {
+    display: grid;
+    grid-template-columns: minmax(140px, 200px) 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+@media (max-width: 640px) {
+    .report__row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.report__time {
+    font-variant-numeric: tabular-nums;
+}
+
+.report__link {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.report__preview {
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-inset);
+    padding: 12px 14px;
+}
+
+.report__preview-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.report__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.report__table th,
+.report__table td {
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.report__table th {
+    color: var(--text-lo);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.report__table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.report__actions {
+    margin-top: 16px;
+    align-items: center;
+}
+
+.report__next {
+    color: var(--text-mid);
+    font-size: 13px;
+}

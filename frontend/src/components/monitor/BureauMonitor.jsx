@@ -126,9 +126,7 @@ export default function BureauMonitor({
                                     ? 'warn'
                                     : alert === 'ON_PHONE'
                                       ? 'phone'
-                                      : zone.activity_state === 'IDLE'
-                                        ? 'idle'
-                                        : 'ok';
+                                      : 'ok';
                             return (
                                 <article
                                     key={zone.id}

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<style>
+    .sheet { width: 2000px; }
+    .canvas { height: 760px; }
+    .tag.in-flask { --tag-bg: #f4f6fb; }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+    <h1>Sc&eacute;nario Cuisine &mdash; flux d'une frame</h1>
+    <p class="subtitle">M&ecirc;me socle SPA &rarr; Flask &rarr; Laravel &middot; un seul mod&egrave;le EPI, pas de zones, pas d'occupations</p>
+
+    <div class="canvas">
+
+        <svg viewBox="0 0 1896 760" preserveAspectRatio="none">
+            <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#98a2b3"/>
+                </marker>
+            </defs>
+            <g fill="none" stroke="#98a2b3" stroke-width="1.8" marker-end="url(#arrow)">
+                <!-- source -> cadence -->
+                <path d="M 200 400 L 236 400 L 236 147 L 264 147"/>
+                <!-- chaine du modele EPI -->
+                <path d="M 377 200 L 377 232"/>
+                <path d="M 377 425 L 377 457"/>
+                <!-- filtres -> les trois controles EPI -->
+                <path d="M 482 545 L 505 545 L 505 177 L 520 177"/>
+                <path d="M 482 545 L 505 545 L 505 392 L 520 392"/>
+                <path d="M 482 545 L 505 545 L 505 607 L 520 607"/>
+                <!-- controles -> alertes confirmees -->
+                <path d="M 888 177 L 908 177 L 908 230 L 924 230"/>
+                <path d="M 888 392 L 908 392 L 908 230 L 924 230"/>
+                <path d="M 888 607 L 908 607 L 908 230 L 924 230"/>
+                <!-- historique par categorie -> bandeau de conformite -->
+                <path d="M 377 625 L 377 712 L 1049 712 L 1049 654"/>
+                <!-- alertes -> Laravel -->
+                <path d="M 1170 230 L 1255 230"/>
+                <!-- chaine interne Laravel -->
+                <path d="M 1415 280 L 1415 302"/>
+                <path d="M 1415 425 L 1415 447"/>
+                <!-- Laravel -> dashboard -->
+                <path d="M 1585 355 L 1632 355"/>
+                <!-- Flask -> dashboard : flux annote, sans passer par Laravel -->
+                <path d="M 1100 36 L 1100 10 L 1765 10 L 1765 232" stroke-dasharray="7 6"/>
+            </g>
+        </svg>
+
+        <!-- ───────────── entree ───────────── -->
+        <div class="card" style="--accent:#98a2b3; left:0; top:330px; width:200px; height:146px;">
+            <h3>Source vid&eacute;o</h3>
+            <p>webcam<br>RTSP<br>fichier<br>&rarr; frame BGR</p>
+        </div>
+
+        <!-- ───────────── moteur Flask ───────────── -->
+        <div class="group" style="--group-bg:#f4f6fb; --group-border:#dfe4ee; --group-dot:#8b5cf6; left:250px; top:40px; width:940px; height:700px;">
+            <div class="group-label">Flask :5000 &middot; EngineSession &mdash; un thread d'inf&eacute;rence par session</div>
+        </div>
+
+        <div class="card" style="--accent:#8b5cf6; left:268px; top:95px; width:218px; height:105px;">
+            <h3>Cadence</h3>
+            <p>frame_skip = 2<br>1 image sur 2 (CPU)</p>
+        </div>
+
+        <div class="card" style="--accent:#8b5cf6; left:268px; top:232px; width:218px; height:193px;">
+            <h3>bestfinal.pt</h3>
+            <p>.predict &middot; imgsz 640<br>6 classes :<br>apron &middot; glove &middot; hairnet<br>no_apron &middot; no_glove<br>no_hairnet</p>
+        </div>
+
+        <div class="card" style="--accent:#8b5cf6; left:268px; top:457px; width:218px; height:168px;">
+            <h3>Filtres</h3>
+            <p>confiance par classe<br>0.22 &rarr; 0.65<br>surface &ge; 2500 px&sup2;<br>&rarr; historique/cat&eacute;gorie</p>
+        </div>
+
+        <div class="card" style="--accent:#f59e0b; left:520px; top:95px; width:368px; height:165px;">
+            <h3>Gants &mdash; critique</h3>
+            <p>glove 0.35 / no_glove 0.45<br>positif vu dans les 5 s &rarr; conforme<br>sinon manquement chronom&eacute;tr&eacute;<br>&ge; 5 s &rarr; alerte NO_GLOVE (une fois)</p>
+        </div>
+
+        <div class="card" style="--accent:#3b82f6; left:520px; top:310px; width:368px; height:165px;">
+            <h3>Charlotte &mdash; critique</h3>
+            <p>hairnet 0.65 / no_hairnet 0.55<br>positif vu dans les 5 s &rarr; conforme<br>sinon manquement chronom&eacute;tr&eacute;<br>&ge; 5 s &rarr; alerte NO_HAIRNET</p>
+        </div>
+
+        <div class="card" style="--accent:#22c55e; left:520px; top:525px; width:368px; height:165px;">
+            <h3>Tablier &mdash; &eacute;lev&eacute;</h3>
+            <p>apron 0.30 / no_apron 0.22<br>positif vu dans les 5 s &rarr; conforme<br>sinon manquement chronom&eacute;tr&eacute;<br>&ge; 8 s &rarr; alerte NO_APRON</p>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:924px; top:130px; width:246px; height:200px;">
+            <h3>Alertes confirm&eacute;es</h3>
+            <p>NO_GLOVE &middot; NO_HAIRNET<br>(critique)<br>NO_APRON (&eacute;lev&eacute;)<br>dur&eacute;e du manquement<br>ni zone ni occupation<br>r&eacute;arm&eacute;e au retour<br>en conformit&eacute;</p>
+        </div>
+
+        <div class="card" style="--accent:#16a34a; left:924px; top:400px; width:246px; height:250px;">
+            <h3>Bandeau conformit&eacute;</h3>
+            <p>historique glissant<br>300 points / cat&eacute;gorie<br>fen&ecirc;tre PPE_COMPLIANT<br>= 5 s<br>CONFORME n/n (vert)<br>NON CONFORME n/n<br>(rouge)</p>
+        </div>
+
+        <!-- ───────────── Laravel ───────────── -->
+        <div class="group" style="--group-bg:#fef6f4; --group-border:#fbdfd7; --group-dot:#ef4444; left:1245px; top:120px; width:340px; height:580px;">
+            <div class="group-label">Laravel :8000</div>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:1267px; top:180px; width:296px; height:100px;">
+            <h3>POST /api/ingest</h3>
+            <p>alertes seulement<br>+ capture JPEG (multipart)</p>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:1267px; top:310px; width:296px; height:115px;">
+            <h3>SQLite</h3>
+            <p>alerts &middot; snapshot_path<br>sessions<br>pas d'occupation_zones</p>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:1267px; top:455px; width:296px; height:170px;">
+            <h3>queue:work</h3>
+            <p>e-mail SMTP (canal unique)<br>capture JPEG int&eacute;gr&eacute;e<br>horodatage d&eacute;taill&eacute;<br>seuils par s&eacute;v&eacute;rit&eacute;<br>export CSV + ZIP</p>
+        </div>
+
+        <!-- ───────────── dashboard ───────────── -->
+        <div class="card" style="--accent:#0d9488; left:1632px; top:240px; width:258px; height:230px;">
+            <h3>Dashboard :3000</h3>
+            <p>Live &mdash; MJPEG annot&eacute;<br>bandeau CONFORME n/n<br>&eacute;tat par &eacute;quipement</p>
+            <p>Alertes &middot; captures<br>Journal &middot; Export</p>
+        </div>
+
+        <!-- ───────────── etiquettes ───────────── -->
+        <div class="tag" style="left:214px; top:270px;">frame</div>
+        <div class="tag in-flask" style="left:700px; top:712px;">historique par cat&eacute;gorie</div>
+        <div class="tag" style="left:1212px; top:214px;">HTTP</div>
+        <div class="tag" style="left:1608px; top:339px;">REST</div>
+        <div class="tag" style="left:1432px; top:10px;">MJPEG + stats (Flask direct)</div>
+
+    </div>
+
+    <div class="footer">
+        <div class="legend">
+            <div class="item" style="color:#98a2b3;">Couleurs du flux annot&eacute; :</div>
+            <div class="item"><span class="swatch" style="background:#22c55e"></span> Tablier</div>
+            <div class="item"><span class="swatch" style="background:#f59e0b"></span> Gants</div>
+            <div class="item"><span class="swatch" style="background:#3b82f6"></span> Charlotte</div>
+            <div class="item"><span class="swatch" style="background:#16a34a"></span> CONFORME</div>
+            <div class="item"><span class="swatch" style="background:#ef4444"></span> NON CONFORME</div>
+        </div>
+        <div class="source">ai_engine/engine/pipelines/kitchen.py &middot; config.yaml (sc&eacute;nario cuisine) &middot; PPE_Restaurant</div>
+    </div>
+
+</div>
+</body>
+</html>

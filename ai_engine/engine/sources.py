@@ -31,6 +31,15 @@ RTSP_OPTIONS = (
     "|fflags;nobuffer|flags;low_delay|max_delay;500000"
 )
 
+# YouTube livre du HLS/DASH HTTP : nobuffer/low_delay (faits pour le RTSP)
+# empêchent FFmpeg d'ouvrir la playlist. Un User-Agent + Referer évitent
+# les 403 de googlevideo.
+YOUTUBE_HTTP_OPTIONS = (
+    "user_agent;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    "|headers;Referer: https://www.youtube.com/\r\n"
+)
+
 # OpenCV lit cette variable d'environnement à la création de chaque
 # VideoCapture : la portée est donc gérée par ce verrou plutôt que par un
 # réglage global au démarrage.
@@ -231,40 +240,159 @@ def youtube_id(url: str) -> str | None:
     return None
 
 
-def _resolve_youtube_stream(url: str) -> str | None:
-    """Demande à yt-dlp une URL de flux directe, si yt-dlp est disponible.
+def _deno_binary() -> str | None:
+    """Localise Deno hors du PATH du processus (install user Windows, Docker)."""
+    env = os.environ.get("DENO") or os.environ.get("DENO_PATH")
+    if env and Path(env).is_file():
+        return env
+    found = shutil.which("deno")
+    if found:
+        return found
+    name = "deno.exe" if os.name == "nt" else "deno"
+    for candidate in (
+        Path.home() / ".deno" / "bin" / name,
+        settings.BASE_DIR / "tools" / "deno" / name,
+        Path("/usr/local/bin/deno"),
+        Path("/usr/bin/deno"),
+    ):
+        if candidate.is_file():
+            return str(candidate)
+    return None
 
-    Renvoie None si la résolution échoue, ce qui fait basculer test_youtube en
-    mode dégradé (titre + miniature) sans jamais prétendre que le flux est
-    décodable.
 
-    Limite connue : depuis 2025, YouTube exige un runtime JavaScript (deno) que
-    yt-dlp appelle pour déchiffrer les signatures d'URL. Sans ce runtime,
-    aucune URL de flux n'est obtenue. L'inférence sur source YouTube (phase 4)
-    suppose donc l'installation d'un runtime JS sur la machine hôte.
+def _js_runtime_args() -> list[str]:
+    """Active un runtime JS supporté pour le déchiffrement des signatures YouTube.
+
+    yt-dlp n'active que Deno par défaut. Node n'est accepté qu'à partir de la
+    22, et seulement si on passe --js-runtimes node.
     """
-    # OpenCV ne lit qu'une seule URL : il faut un format déjà muxé (b), pas une
-    # combinaison vidéo+audio séparée. 18 = mp4 360p progressif, très courant.
-    fmt = "b[height<=720]/18/b"
+    deno = _deno_binary()
+    if deno:
+        return ["--js-runtimes", f"deno:{deno}"]
+    node = shutil.which("node")
+    if node and _node_major(node) >= 22:
+        return ["--no-js-runtimes", "--js-runtimes", f"node:{node}"]
+    return []
 
-    # sys.executable garantit l'interpréteur du venv courant : shutil.which ne
-    # trouve yt-dlp que si le venv est activé, ce qui n'est pas toujours le cas.
-    binary = shutil.which("yt-dlp")
-    launcher = [binary] if binary else [sys.executable, "-m", "yt_dlp"]
-    command = launcher + ["-f", fmt, "-g", url]
+
+def _node_major(node: str) -> int:
     try:
         completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=settings.OPEN_TIMEOUT + 8,
+            [node, "-v"], capture_output=True, text=True, timeout=5
         )
     except (OSError, subprocess.TimeoutExpired):
-        return None
-    if completed.returncode != 0:
-        return None
-    lines = [line for line in completed.stdout.splitlines() if line.strip()]
-    return lines[0] if lines else None
+        return 0
+    raw = (completed.stdout or "").strip().lstrip("v")
+    try:
+        return int(raw.split(".", 1)[0])
+    except ValueError:
+        return 0
+
+
+def _yt_dlp_launcher() -> list[str]:
+    """Préfère le yt-dlp du venv courant, pas un binaire PATH éventuellement plus vieux."""
+    return [sys.executable, "-m", "yt_dlp"]
+
+
+def _yt_dlp_env() -> dict:
+    env = os.environ.copy()
+    deno = _deno_binary()
+    if deno:
+        env["PATH"] = str(Path(deno).parent) + os.pathsep + env.get("PATH", "")
+    return env
+
+
+YOUTUBE_RESOLVE_TIMEOUT = 70
+YOUTUBE_FORMAT = (
+    "bv*[vcodec^=avc1][height<=720]/"
+    "bv*[height<=720][protocol^=m3u8]/"
+    "bv*[height<=720][ext=mp4]/"
+    "bv*[height<=720]/"
+    "bv*/"
+    "b[height<=720]/"
+    "b/"
+    "18"
+)
+
+
+def _yt_dlp_stderr_hint(stderr: str) -> str:
+    for line in reversed((stderr or "").splitlines()):
+        text = line.strip()
+        if not text:
+            continue
+        if text.startswith("ERROR:"):
+            return text.removeprefix("ERROR:").strip()
+        if "No supported JavaScript runtime" in text:
+            return (
+                "YouTube exige un runtime JavaScript. Installez Deno 2.3+ "
+                "(https://deno.land) et relancez le moteur."
+            )
+    return ""
+
+
+def _resolve_youtube_stream(url: str) -> str:
+    """Demande à yt-dlp une URL de flux directe.
+
+    YouTube ne livre plus le MP4 progressif muxé (itag 18). OpenCV n'a besoin
+    que de la vidéo : on privilégie un flux vidéo seul (HLS ou DASH). Depuis
+    2025, le déchiffrement des signatures demande un runtime JS (Deno).
+    """
+    # Une seule URL pour OpenCV : pas de combinaison bestvideo+bestaudio (-g
+    # en sortirait deux). L'audio est inutile pour l'inférence.
+    js_args = _js_runtime_args()
+    # D'abord sans runtime JS : souvent suffisant (HLS/DASH vidéo) et plus rapide.
+    # Deno ensuite, pour les lives / vidéos sans format progressif.
+    attempts = [([], settings.OPEN_TIMEOUT + 8)]
+    if js_args:
+        attempts.append((js_args, YOUTUBE_RESOLVE_TIMEOUT))
+
+    last_error = None
+    last_stderr = ""
+    seen = set()
+    for extra, timeout in attempts:
+        key = tuple(extra)
+        if key in seen:
+            continue
+        seen.add(key)
+        command = (
+            _yt_dlp_launcher()
+            + extra
+            + ["--no-playlist", "--no-warnings", "-f", YOUTUBE_FORMAT, "-g", url]
+        )
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=_yt_dlp_env(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            last_error = exc
+            continue
+        except OSError as exc:
+            raise SourceError(f"yt-dlp introuvable ou inexécutable : {exc}.") from exc
+
+        lines = [line for line in completed.stdout.splitlines() if line.strip()]
+        if completed.returncode == 0 and lines:
+            return lines[0]
+        last_stderr = completed.stderr or ""
+        last_error = None
+
+    hint = _yt_dlp_stderr_hint(last_stderr)
+    if isinstance(last_error, subprocess.TimeoutExpired):
+        raise SourceError(
+            f"Délai dépassé : yt-dlp n'a pas résolu le flux YouTube "
+            f"({YOUTUBE_RESOLVE_TIMEOUT:.0f}s)."
+        ) from last_error
+    if not _deno_binary() and "No supported JavaScript runtime" in last_stderr:
+        raise SourceError(
+            "Flux YouTube non résolvable : aucun runtime JavaScript (Deno 2.3+) "
+            "n'est installé. Installez Deno depuis https://deno.land puis relancez le moteur."
+        )
+    if hint:
+        raise SourceError(f"Flux YouTube non résolvable : {hint}")
+    raise SourceError("Flux YouTube non résolvable : yt-dlp n'a obtenu aucune URL.")
 
 
 def test_youtube(url: str) -> dict:
@@ -309,11 +437,14 @@ def test_youtube(url: str) -> dict:
     # La miniature prouve l'existence de la vidéo, pas la capacité du moteur à
     # la décoder. On tente donc une vraie extraction de frame via yt-dlp et on
     # indique clairement au client ce qu'il regarde.
-    stream_url = _resolve_youtube_stream(f"https://www.youtube.com/watch?v={video_id}")
+    try:
+        stream_url = _resolve_youtube_stream(f"https://www.youtube.com/watch?v={video_id}")
+    except SourceError:
+        stream_url = None
     if stream_url:
         cap = None
         try:
-            cap = _open_with_timeout(stream_url, cv2.CAP_FFMPEG)
+            cap = _open_with_timeout(stream_url, cv2.CAP_FFMPEG, ffmpeg_options=YOUTUBE_HTTP_OPTIONS)
             if cap is not None and cap.isOpened():
                 frame = _read_first_frame(cap, "Flux YouTube")
                 meta.update(_capture_meta(cap, frame))
@@ -414,16 +545,7 @@ def open_capture(source_type: str, value: str):
         if not video_id:
             raise SourceError("URL YouTube non reconnue.")
         stream = _resolve_youtube_stream(f"https://www.youtube.com/watch?v={video_id}")
-        if not stream:
-            raise SourceError(
-                "Flux YouTube non résolvable : yt-dlp n'a obtenu aucune URL. "
-                "YouTube exige un runtime JavaScript (deno) sur la machine hôte."
-            )
-        target, backend, options = (
-            stream,
-            cv2.CAP_FFMPEG,
-            "fflags;nobuffer|flags;low_delay|max_delay;500000",
-        )
+        target, backend, options = stream, cv2.CAP_FFMPEG, YOUTUBE_HTTP_OPTIONS
     else:
         raise SourceError(f"Type de source inconnu : {source_type}")
 

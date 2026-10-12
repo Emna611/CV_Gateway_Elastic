@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<style>
+    .sheet { width: 2000px; }
+    .canvas { height: 760px; }
+    .tag.in-flask { --tag-bg: #f4f6fb; }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+    <h1>Sc&eacute;nario Bureau &mdash; flux d'une frame</h1>
+    <p class="subtitle">M&ecirc;me socle SPA &rarr; Flask &rarr; Laravel &middot; pipeline d'inf&eacute;rence sp&eacute;cifique : occupation des postes, vigilance, t&eacute;l&eacute;phone</p>
+
+    <div class="canvas">
+
+        <svg viewBox="0 0 1896 760" preserveAspectRatio="none">
+            <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#98a2b3"/>
+                </marker>
+            </defs>
+            <g fill="none" stroke="#98a2b3" stroke-width="1.8" marker-end="url(#arrow)">
+                <!-- source -> modele de pose -->
+                <path d="M 200 400 L 264 400"/>
+                <!-- modele -> les trois detecteurs -->
+                <path d="M 497 405 L 519 405 L 519 187 L 537 187"/>
+                <path d="M 497 407 L 537 407"/>
+                <path d="M 497 405 L 519 405 L 519 615 L 537 615"/>
+                <!-- detecteurs -> evenements -->
+                <path d="M 905 187 L 923 187 L 923 407 L 937 407"/>
+                <path d="M 905 407 L 937 407"/>
+                <path d="M 905 615 L 923 615 L 923 407 L 937 407"/>
+                <!-- evenements -> Laravel -->
+                <path d="M 1170 407 L 1210 407 L 1210 210 L 1259 210"/>
+                <!-- chaine interne Laravel -->
+                <path d="M 1415 260 L 1415 282"/>
+                <path d="M 1415 405 L 1415 427"/>
+                <!-- Laravel -> dashboard -->
+                <path d="M 1585 355 L 1632 355"/>
+                <!-- Flask -> dashboard : flux annote, sans passer par Laravel -->
+                <path d="M 1100 36 L 1100 10 L 1765 10 L 1765 232" stroke-dasharray="7 6"/>
+            </g>
+        </svg>
+
+        <!-- ───────────── entree ───────────── -->
+        <div class="card" style="--accent:#98a2b3; left:0; top:330px; width:200px; height:146px;">
+            <h3>Source vid&eacute;o</h3>
+            <p>webcam<br>RTSP<br>fichier<br>&rarr; frame BGR</p>
+        </div>
+
+        <!-- ───────────── moteur Flask ───────────── -->
+        <div class="group" style="--group-bg:#f4f6fb; --group-border:#dfe4ee; --group-dot:#2563eb; left:250px; top:40px; width:940px; height:700px;">
+            <div class="group-label">Flask :5000 &middot; EngineSession &mdash; un thread d'inf&eacute;rence par session</div>
+        </div>
+
+        <div class="card" style="--accent:#3b82f6; left:272px; top:325px; width:225px; height:162px;">
+            <h3>yolo11m-pose.pt</h3>
+            <p>.track(classes=[0])<br>persist=True<br>imgsz 1280 &middot; iou 0.5<br>conf r&eacute;glable (UI)<br>&rarr; bo&icirc;tes + ID + keypoints</p>
+        </div>
+
+        <div class="card" style="--accent:#16a34a; left:545px; top:95px; width:360px; height:185px;">
+            <h3>Zones &mdash; occupation</h3>
+            <p>polygones 0..1 &rarr; pixels &agrave; chaque frame<br>3 sondes (centre &middot; pieds &middot; buste)<br>pr&eacute;sence &ge; 3 s &rarr; ZONE_OCCUPIED<br>immobilit&eacute; &ge; 60 s &rarr; IDLE, sinon ACTIVE<br>mouvement = d&eacute;placement &gt; 4 % de la bo&icirc;te</p>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:545px; top:325px; width:360px; height:165px;">
+            <h3>SleepDetector &mdash; vigilance</h3>
+            <p>analyse de la pose (17 keypoints)<br>posture affaiss&eacute;e &ge; 30 s &rarr; FATIGUE<br>t&ecirc;te baiss&eacute;e &ge; 300 s &rarr; SLEEPING<br>priorit&eacute; SLEEPING &gt; FATIGUE &gt; ON_PHONE</p>
+        </div>
+
+        <div class="card" style="--accent:#f59e0b; left:545px; top:535px; width:360px; height:162px;">
+            <h3>phone_model.pt &mdash; t&eacute;l&eacute;phone</h3>
+            <p>charg&eacute; seulement si la classe est active<br>conf 0.88 &middot; classe COCO 67 ou mod&egrave;le 1 classe<br>recouvrement bo&icirc;te &gt; 50 %<br>maintenu 5 s &rarr; ON_PHONE</p>
+        </div>
+
+        <div class="card" style="--accent:#8b5cf6; left:937px; top:305px; width:233px; height:205px;">
+            <h3>&Eacute;v&eacute;nements</h3>
+            <p>occupation enter / exit<br>zone &middot; activit&eacute; &middot; dur&eacute;e<br>alertes de zone :<br>SLEEPING &middot; FATIGUE<br>ON_PHONE<br>un signe non confirm&eacute;<br>ne remonte pas</p>
+        </div>
+
+        <!-- ───────────── Laravel ───────────── -->
+        <div class="group" style="--group-bg:#fef6f4; --group-border:#fbdfd7; --group-dot:#ef4444; left:1245px; top:100px; width:340px; height:580px;">
+            <div class="group-label">Laravel :8000</div>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:1267px; top:160px; width:296px; height:100px;">
+            <h3>POST /api/ingest</h3>
+            <p>token partag&eacute;<br>lots d'&eacute;v&eacute;nements</p>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:1267px; top:290px; width:296px; height:115px;">
+            <h3>SQLite</h3>
+            <p>occupation_zones<br>alerts<br>sessions &middot; zones</p>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:1267px; top:435px; width:296px; height:170px;">
+            <h3>queue:work</h3>
+            <p>e-mail SMTP (canal unique)<br>capture JPEG int&eacute;gr&eacute;e<br>horodatage d&eacute;taill&eacute;<br>seuils par s&eacute;v&eacute;rit&eacute;<br>export CSV</p>
+        </div>
+
+        <!-- ───────────── dashboard ───────────── -->
+        <div class="card" style="--accent:#0d9488; left:1632px; top:240px; width:258px; height:230px;">
+            <h3>Dashboard :3000</h3>
+            <p>Live &mdash; MJPEG annot&eacute;<br>KPI temps r&eacute;el<br>(stats Flask)</p>
+            <p>Alertes &middot; Journal<br>Export CSV<br>(via Laravel)</p>
+        </div>
+
+        <!-- ───────────── etiquettes ───────────── -->
+        <div class="tag" style="left:232px; top:384px;">frame</div>
+        <div class="tag in-flask" style="left:1210px; top:300px;">HTTP</div>
+        <div class="tag" style="left:1608px; top:339px;">REST</div>
+        <div class="tag" style="left:1432px; top:10px;">MJPEG + stats (Flask direct)</div>
+
+    </div>
+
+    <div class="footer">
+        <div class="legend">
+            <div class="item" style="color:#98a2b3;">Couleurs du flux annot&eacute; :</div>
+            <div class="item"><span class="swatch" style="background:#16a34a"></span> ACTIVE</div>
+            <div class="item"><span class="swatch" style="background:#98a2b3"></span> IDLE</div>
+            <div class="item"><span class="swatch" style="background:#eab308"></span> ON_PHONE</div>
+            <div class="item"><span class="swatch" style="background:#ea580c"></span> FATIGUE</div>
+            <div class="item"><span class="swatch" style="background:#ef4444"></span> SLEEPING</div>
+        </div>
+        <div class="source">ai_engine/engine/pipelines/office.py &middot; engine/sleep_detector.py &middot; config.yaml (seuils r&eacute;glables par sc&eacute;nario)</div>
+    </div>
+
+</div>
+</body>
+</html>

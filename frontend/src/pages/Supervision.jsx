@@ -13,6 +13,7 @@ import './Supervision.css';
 const POLL_MS = 1000;
 
 const ALERT_LABELS = {
+    ZONE_OCCUPIED: 'Poste occupé',
     SLEEPING: 'Endormissement',
     FATIGUE: 'Fatigue',
     ON_PHONE: 'Téléphone',
@@ -279,7 +280,7 @@ export default function Supervision() {
             setLoadError(null);
             try {
                 const payload = toApiPayload(next, defaults, status.detections);
-                const response = await api.updateEngineAlerts(payload.email, payload.sms);
+                const response = await api.updateEngineAlerts(payload.email);
                 setSnapshot(response.status);
             } catch (error) {
                 setLoadError(error.message);
@@ -300,7 +301,6 @@ export default function Supervision() {
         const current = notifyDraft ?? toNotifyDraft(status);
         const next = {
             email: { ...current.email, ...patch },
-            sms: { enabled: false, phone: '' },
         };
         setNotifyDraft(next);
         applyNotifyDraft(next, 'enabled' in patch || 'types' in patch);
@@ -1027,7 +1027,7 @@ function BureauPanel({ stats }) {
                     {occupied} occupé{occupied > 1 ? 's' : ''}
                 </span>
                 <span className="chip">
-                    <span className="severity-dot" data-severity="info" />
+                    <span className="severity-dot" data-severity="critical" />
                     {Math.max(zones.length - occupied, 0)} libre
                     {zones.length - occupied > 1 ? 's' : ''}
                 </span>
@@ -1051,7 +1051,7 @@ function BureauPanel({ stats }) {
                                 ? 'moderate'
                                 : zone.occupied
                                   ? 'compliant'
-                                  : 'info';
+                                  : 'critical';
                     return (
                         <article key={zone.id} className="cabin" data-alert={alert}>
                             <span className="severity-dot" data-severity={severity} />
@@ -1146,7 +1146,6 @@ function toNotifyDraft(status) {
             types: Array.isArray(email.types) ? email.types : [],
             cooldownMinutes: email.cooldown_minutes ?? email.cooldownMinutes ?? 5,
         },
-        sms: { enabled: false, phone: '' },
     };
 }
 
@@ -1166,12 +1165,6 @@ function toApiPayload(draft, defaults, detections) {
         email: {
             enabled: draft.email.enabled,
             recipient: draft.email.recipient.trim(),
-            types,
-            cooldown_minutes: draft.email.cooldownMinutes,
-        },
-        sms: {
-            enabled: false,
-            phone: '',
             types,
             cooldown_minutes: draft.email.cooldownMinutes,
         },

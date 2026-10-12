@@ -30,7 +30,7 @@ class LaravelError(RuntimeError):
 
 
 def request_json(method: str, path: str, payload: dict | None = None, timeout: float = 15) -> dict:
-    """Appel synchrone vers Laravel (test SMS, statut). L'ingestion reste asynchrone."""
+    """Appel synchrone vers Laravel (test email, statut). L'ingestion reste asynchrone."""
     token = settings.ingest_token()
     if not token:
         raise LaravelError("INGEST_TOKEN manquant : le backend Laravel n'est pas joignable.", 503)
@@ -54,8 +54,9 @@ def request_json(method: str, path: str, payload: dict | None = None, timeout: f
             parsed = {}
         message = parsed.get("error") or raw[:300] or f"HTTP {exc.code}"
         raise LaravelError(str(message), exc.code) from exc
-    except urllib.error.URLError as exc:
-        raise LaravelError(f"Laravel injoignable ({url}) : {exc.reason}", 502) from exc
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        reason = getattr(exc, "reason", exc)
+        raise LaravelError(f"Laravel injoignable ({url}) : {reason}", 502) from exc
 
 
 def _iso(epoch: float | None) -> str | None:
@@ -112,7 +113,6 @@ class LaravelIngest:
             "duration": event.get("duration"),
             "created_at": _iso(event.get("at")),
             "email": session.config.get("email") or {},
-            "sms": session.config.get("sms") or {},
         }
         item: dict[str, Any] = {
             "method": "POST",

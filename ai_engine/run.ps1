@@ -4,6 +4,9 @@
 # OpenCV, PyYAML, requests, yt-dlp, Torch et Ultralytics. Pour un
 # environnement dédié : python -m venv .venv puis
 # .\.venv\Scripts\pip install -r requirements.txt
+#
+# YouTube : yt-dlp a besoin de Deno 2.3+ (https://deno.land), cherché dans
+# PATH, %USERPROFILE%\.deno\bin et ai_engine/tools/deno.
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path

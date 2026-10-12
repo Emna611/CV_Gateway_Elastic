@@ -6,6 +6,7 @@ import DetectionsPanel from '../components/config/DetectionsPanel.jsx';
 import ThresholdsPanel from '../components/config/ThresholdsPanel.jsx';
 import EmailPanel from '../components/config/EmailPanel.jsx';
 import ZonesPanel from '../components/config/ZonesPanel.jsx';
+import DailyReportPanel from '../components/config/DailyReportPanel.jsx';
 import PreviewPanel from '../components/config/PreviewPanel.jsx';
 import { StatusBanner } from '../components/ui/controls.jsx';
 import './ScenarioConfig.css';
@@ -108,6 +109,12 @@ export default function ScenarioConfig() {
                             onToggleEditing={(value) =>
                                 dispatch({ type: 'zonesEditing', value })
                             }
+                        />
+                    )}
+                    {scenarioId === 'bureau' && (
+                        <DailyReportPanel
+                            index="2.6"
+                            fallbackRecipient={state.email.recipient.trim()}
                         />
                     )}
                 </div>

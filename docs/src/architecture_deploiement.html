@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<style>
+    .sheet { width: 1900px; }
+    .canvas { height: 800px; }
+    /* Les etiquettes posees a l'interieur du cadre Docker Compose reprennent sa teinte. */
+    .tag.in-compose { --tag-bg: #eaf1fd; }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+    <h1>Architecture de d&eacute;ploiement &mdash; Docker Compose (environnement local)</h1>
+    <p class="subtitle">cv_gatway &mdash; docker compose up --build &middot; 3 processus HTTP autonomes + 1 worker de file, sans registry</p>
+
+    <div class="canvas">
+
+        <svg viewBox="0 0 1796 800" preserveAspectRatio="none">
+            <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#98a2b3"/>
+                </marker>
+                <marker id="arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#d99a45"/>
+                </marker>
+            </defs>
+
+            <g fill="none" stroke="#98a2b3" stroke-width="1.8" marker-end="url(#arrow)">
+                <!-- operateur -> frontend -->
+                <path d="M 176 210 L 228 210"/>
+                <!-- frontend -> backend -->
+                <path d="M 492 210 L 606 210"/>
+                <!-- backend -> queue : la file passe par la table SQLite -->
+                <path d="M 870 210 L 984 210" stroke-dasharray="7 6"/>
+                <!-- frontend -> ai_engine -->
+                <path d="M 363 278 L 363 414 L 406 414"/>
+                <!-- ai_engine -> backend : ingestion -->
+                <path d="M 541 336 L 541 300 L 741 300 L 741 278" stroke-dasharray="7 6"/>
+                <!-- queue -> SMTP Gmail -->
+                <path d="M 1248 210 L 1348 210" stroke-dasharray="7 6"/>
+            </g>
+
+            <g fill="none" stroke="#d99a45" stroke-width="1.6" stroke-dasharray="7 6" marker-end="url(#arrow-amber)">
+                <!-- env_file -> backend et queue -->
+                <path d="M 830 336 L 830 316 L 760 316 L 760 278"/>
+                <path d="M 963 336 L 963 316 L 1119 316 L 1119 278"/>
+                <!-- volumes -> conteneurs -->
+                <path d="M 343 636 L 343 546"/>
+                <path d="M 633 636 L 633 546"/>
+                <path d="M 923 636 L 923 546"/>
+                <path d="M 1213 636 L 1213 546"/>
+            </g>
+        </svg>
+
+        <!-- ───────────── operateur ───────────── -->
+        <div class="actor" style="left:0; top:152px;">
+            <svg width="86" height="92" viewBox="0 0 86 92" style="position:static; width:86px; height:92px;">
+                <g fill="none" stroke="#344054" stroke-width="3.4" stroke-linecap="round">
+                    <circle cx="43" cy="16" r="13"/>
+                    <path d="M 43 30 L 43 62 M 14 43 L 72 43 M 43 62 L 22 89 M 43 62 L 64 89"/>
+                </g>
+            </svg>
+            <div class="name">Op&eacute;rateur</div>
+            <div class="role">navigateur<br>localhost:3000</div>
+        </div>
+
+        <!-- ───────────── poste local ───────────── -->
+        <div class="group dashed" style="--group-bg:transparent; --group-border:#b6bdc9; --group-dot:#667085; left:186px; top:10px; width:1112px; height:530px;">
+            <div class="group-label">Poste local (Docker Desktop)</div>
+            <div class="group-sub">cv_gatway/ &middot; docker compose up --build</div>
+        </div>
+
+        <div class="group" style="--group-bg:#eaf1fd; --group-border:#cfdefa; --group-dot:#2563eb; left:212px; top:90px; width:1060px; height:430px;">
+            <div class="group-label">Docker Compose</div>
+        </div>
+
+        <div class="card" style="--accent:#16a34a; left:234px; top:146px; width:258px; height:128px;">
+            <h3>frontend</h3>
+            <p>Nginx + React/Vite<br>Port : 3000 &rarr; 80<br>depends_on backend + ai_engine</p>
+        </div>
+
+        <div class="card" style="--accent:#ef4444; left:612px; top:146px; width:258px; height:128px;">
+            <h3>backend</h3>
+            <p>Laravel 12 &middot; PHP 8.2<br>Port : 8000<br>php artisan serve</p>
+        </div>
+
+        <div class="card" style="--accent:#f59e0b; left:990px; top:146px; width:258px; height:128px;">
+            <h3>queue (worker)</h3>
+            <p>m&ecirc;me image que backend<br>php artisan queue:work<br>aucun port publi&eacute;</p>
+        </div>
+
+        <div class="card" style="--accent:#3b82f6; left:412px; top:340px; width:258px; height:152px;">
+            <h3>ai_engine</h3>
+            <p>Flask + YOLO (moteur CV)<br>Port : 5000<br>LARAVEL_URL, INGEST_TOKEN<br>(dans docker-compose.yml)</p>
+        </div>
+
+        <div class="note" style="left:768px; top:340px; width:258px; height:152px;">
+            <b>backend/.env (env_file)</b><br>
+            MAIL_* &rarr; SMTP Gmail<br>
+            QUEUE_CONNECTION=database<br>
+            INGEST_TOKEN, FRONTEND_URL
+        </div>
+
+        <!-- ───────────── services externes ───────────── -->
+        <div class="group dashed" style="--group-bg:#f7f8fa; --group-border:#b6bdc9; --group-dot:#667085; left:1330px; top:90px; width:466px; height:200px;">
+            <div class="group-label">Internet &middot; services externes</div>
+        </div>
+
+        <div class="card" style="--accent:#16a34a; left:1354px; top:146px; width:418px; height:120px;">
+            <h3>SMTP Gmail</h3>
+            <p>smtp.gmail.com : 587<br>MAIL_USERNAME / MAIL_PASSWORD<br>seul service externe du produit</p>
+        </div>
+
+        <!-- ───────────── volumes ───────────── -->
+        <div class="note" style="left:212px; top:636px; width:262px; height:140px;">
+            <b>Volume : laravel-db</b><br>
+            fichier SQLite<br>
+            occupations, alertes, jobs<br>
+            (backend + queue)
+        </div>
+
+        <div class="note" style="left:502px; top:636px; width:262px; height:140px;">
+            <b>Volume : laravel-storage</b><br>
+            storage/app/snapshots<br>
+            captures jointes aux e-mails<br>
+            (backend + queue)
+        </div>
+
+        <div class="note" style="left:792px; top:636px; width:262px; height:140px;">
+            <b>Volume : engine-data</b><br>
+            data/configs/*.json<br>
+            data/frames/<br>
+            (ai_engine)
+        </div>
+
+        <div class="note" style="left:1082px; top:636px; width:262px; height:140px;">
+            <b>Bind (ro) : poids YOLO</b><br>
+            ./Office_Monitoring_v2<br>
+            ./PPE_Restaurant<br>
+            (ai_engine)
+        </div>
+
+        <!-- ───────────── etiquettes ───────────── -->
+        <div class="tag" style="left:202px; top:184px;">HTTP :3000</div>
+        <div class="tag in-compose" style="left:549px; top:184px;">proxy /api/export</div>
+        <div class="tag in-compose" style="left:927px; top:184px;">jobs &middot; table SQLite</div>
+        <div class="tag in-compose" style="left:297px; top:330px;">proxy /api</div>
+        <div class="tag in-compose" style="left:660px; top:324px;">ingest &middot; X-Ingest-Token</div>
+        <div class="tag" style="left:1298px; top:184px;">e-mail (file)</div>
+        <div class="tag wrap" style="left:100px; top:700px; width:186px;">volumes nomm&eacute;s &mdash; les donn&eacute;es survivent &agrave; docker compose down</div>
+
+    </div>
+
+    <div class="footer">
+        <div class="legend">
+            <div class="item"><span class="line"></span> appel HTTP synchrone (proxy nginx)</div>
+            <div class="item"><span class="line dash"></span> asynchrone / config / volume &mdash; un &eacute;chec ne bloque pas les autres services</div>
+        </div>
+        <div class="source">Source : docker-compose.yml &middot; d&eacute;p&ocirc;t cv_gatway (septembre 2026)</div>
+    </div>
+
+</div>
+</body>
+</html>

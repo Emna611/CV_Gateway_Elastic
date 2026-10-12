@@ -100,11 +100,11 @@ export function updateEngineDetections(detections) {
     });
 }
 
-export function updateEngineAlerts(email, sms) {
+export function updateEngineAlerts(email) {
     return request('/api/engine/alerts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, sms }),
+        body: JSON.stringify({ email }),
     });
 }
 
@@ -140,6 +140,60 @@ export async function fetchJournal(kind, params) {
     }
 
     return payload;
+}
+
+/* Rapport quotidien « temps de travail » (bureau) : réglages côté Laravel,
+   sous /api/export pour suivre le même proxy que le journal. */
+async function laravelJson(path, options = {}) {
+    let response;
+    try {
+        response = await fetch(path, options);
+    } catch {
+        throw new ApiError(LARAVEL_OFFLINE, 0);
+    }
+
+    let payload = null;
+    try {
+        payload = await response.json();
+    } catch {
+        payload = null;
+    }
+
+    if (!response.ok || payload?.ok === false) {
+        let message = payload?.error ?? payload?.message ?? `Erreur ${response.status}`;
+        if (payload?.errors) {
+            const first = Object.values(payload.errors)[0];
+            if (Array.isArray(first) && first[0]) message = first[0];
+        }
+        throw new ApiError(message, response.status);
+    }
+
+    return payload;
+}
+
+export function getDailyReport() {
+    return laravelJson('/api/export/report/daily');
+}
+
+export function saveDailyReport(settings) {
+    return laravelJson('/api/export/report/daily', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(settings),
+    });
+}
+
+export function previewDailyReport(date) {
+    const query = date ? `?${new URLSearchParams({ date })}` : '';
+    return laravelJson(`/api/export/report/daily/preview${query}`);
+}
+
+export function sendDailyReportNow(body) {
+    return laravelJson('/api/export/report/daily/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body ?? {}),
+    });
 }
 
 export async function deleteJournal(params) {

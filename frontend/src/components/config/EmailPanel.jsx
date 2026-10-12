@@ -96,7 +96,14 @@ export default function EmailPanel({
                         {showRecipientError && (
                             <p className="field__error">Format d&apos;adresse invalide.</p>
                         )}
-                        {emailMeta && emailMeta.configured === false && (
+                        {emailMeta && emailMeta.backend_reachable === false && (
+                            <p className="field__help">
+                                Backend Laravel injoignable : démarrez
+                                <code> php artisan serve --host=127.0.0.1 --port=8000</code>
+                                dans le dossier backend, puis rechargez cette page.
+                            </p>
+                        )}
+                        {emailMeta && emailMeta.configured === false && emailMeta.backend_reachable !== false && (
                             <p className="field__help">
                                 SMTP non configuré côté serveur : renseignez MAIL_USERNAME
                                 et MAIL_PASSWORD dans backend/.env. Avec Gmail, utilisez un

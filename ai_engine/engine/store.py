@@ -12,7 +12,6 @@ from typing import Any
 from . import settings
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$")
-E164_RE = re.compile(r"^\+[1-9]\d{7,14}$")
 
 
 class ValidationError(ValueError):
@@ -115,12 +114,8 @@ def normalize_detections(defaults: dict, raw_detections) -> list:
     return detections
 
 
-def normalize_notifications(defaults: dict, detections: list, raw_email, raw_sms) -> dict:
-    """Valide les alertes email pour les classes actuellement actives.
-
-    Le canal SMS a été retiré du produit : le champ est toujours renvoyé
-    désactivé pour rester compatible avec les configurations déjà enregistrées.
-    """
+def normalize_notifications(defaults: dict, detections: list, raw_email) -> dict:
+    """Valide les alertes email pour les classes actuellement actives."""
     specs = defaults["thresholds"]
     active_thresholds = settings.active_threshold_keys(defaults, detections)
 
@@ -161,19 +156,10 @@ def normalize_notifications(defaults: dict, detections: list, raw_email, raw_sms
         "Délai anti-spam",
     )
 
-    if raw_sms not in (None, "") and not isinstance(raw_sms, dict):
-        raise ValidationError("sms : objet attendu.")
-
     return {
         "email": {
             "enabled": enabled,
             "recipient": recipient,
-            "types": list(types),
-            "cooldown_minutes": cooldown,
-        },
-        "sms": {
-            "enabled": False,
-            "phone": "",
             "types": list(types),
             "cooldown_minutes": cooldown,
         },
@@ -224,7 +210,6 @@ def validate(scenario_id: str, payload: dict) -> dict:
         defaults,
         detections,
         payload.get("email"),
-        payload.get("sms"),
     )
 
     # ── zones ──
@@ -242,26 +227,7 @@ def validate(scenario_id: str, payload: dict) -> dict:
         "thresholds": thresholds,
         "confidence": confidence,
         "email": notifications["email"],
-        "sms": notifications["sms"],
     }
-
-
-def normalize_phone(raw: str) -> str:
-    """Normalise un numéro tunisien ou E.164. Chaîne vide si rien n'est saisi."""
-    compact = re.sub(r"[^\d+]", "", (raw or "").strip())
-    if not compact:
-        return ""
-    if compact.startswith("00"):
-        compact = "+" + compact[2:]
-    elif compact.startswith("216") and not compact.startswith("+"):
-        compact = "+" + compact
-    elif compact.isdigit() and len(compact) == 8:
-        compact = "+216" + compact
-    if not E164_RE.match(compact):
-        raise ValueError(
-            "sms.phone : numéro invalide. Utilisez le format international (+216XXXXXXXX)."
-        )
-    return compact
 
 
 def _path(scenario_id: str):

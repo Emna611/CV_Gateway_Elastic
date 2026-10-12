@@ -32,9 +32,9 @@ def _with_preview_url(result: dict) -> dict:
 def health():
     smtp = {"configured": False}
     try:
-        payload = ingest.request_json("GET", "/api/notify/email/status", timeout=3)
+        payload = ingest.request_json("GET", "/api/notify/email/status", timeout=5)
         smtp = {k: v for k, v in payload.items() if k != "ok"}
-    except ingest.LaravelError:
+    except Exception:
         pass
     return jsonify(
         {
@@ -131,11 +131,28 @@ def source_frame(token):
 
 @api.get("/email/status")
 def email_status():
+    # Un backend encore en train de démarrer ne doit pas casser le panneau
+    # de configuration : on dégrade le statut, on n'élève pas un 502.
     try:
-        payload = ingest.request_json("GET", "/api/notify/email/status")
+        payload = ingest.request_json("GET", "/api/notify/email/status", timeout=5)
     except ingest.LaravelError as exc:
-        return _fail(str(exc), exc.status, configured=False)
-    return jsonify({"ok": True, **{k: v for k, v in payload.items() if k != "ok"}})
+        return jsonify(
+            {
+                "ok": True,
+                "configured": False,
+                "backend_reachable": False,
+                "missing": [],
+                "from": None,
+                "error": str(exc),
+            }
+        )
+    return jsonify(
+        {
+            "ok": True,
+            "backend_reachable": True,
+            **{k: v for k, v in payload.items() if k != "ok"},
+        }
+    )
 
 
 @api.post("/email/test")
@@ -161,44 +178,6 @@ def email_test():
             "ok": True,
             "message": result.get("message") or f"Email envoyé à {recipient}.",
             "via": result.get("via") or "Laravel",
-        }
-    )
-
-
-# ─────────────────────────── SMS ───────────────────────────
-
-
-@api.get("/sms/status")
-def sms_status():
-    try:
-        payload = ingest.request_json("GET", "/api/notify/sms/status")
-    except ingest.LaravelError as exc:
-        return _fail(str(exc), exc.status, configured=False)
-    return jsonify({"ok": True, **{k: v for k, v in payload.items() if k != "ok"}})
-
-
-@api.post("/sms/test")
-def sms_test():
-    payload = request.get_json(silent=True) or {}
-    phone = str(payload.get("phone") or "").strip()
-    try:
-        normalized = store.normalize_phone(phone)
-    except ValueError as exc:
-        return _fail(str(exc).split(" : ", 1)[-1], 422)
-    if not normalized:
-        return _fail("Numéro destinataire invalide.", 422)
-
-    try:
-        result = ingest.request_json("POST", "/api/notify/sms/test", {"phone": normalized})
-    except ingest.LaravelError as exc:
-        configured = exc.status != 503
-        return _fail(str(exc), 503 if exc.status == 503 else min(exc.status, 502), configured=configured)
-
-    return jsonify(
-        {
-            "ok": True,
-            "message": result.get("message") or f"SMS envoyé à {normalized}.",
-            "via": result.get("via") or "Twilio",
         }
     )
 
@@ -296,9 +275,8 @@ def engine_alerts():
             session.defaults,
             session.detections,
             body.get("email", session.config.get("email")),
-            body.get("sms", session.config.get("sms")),
         )
-        session.update_notifications(notifications["email"], notifications["sms"])
+        session.update_notifications(notifications["email"])
     except store.ValidationError as exc:
         return _fail(str(exc), 422)
     except runtime.EngineError as exc:
