@@ -33,13 +33,13 @@ Opérateur → Frontend (:3000)
 
 ## Scénarios et modèles
 
-Les poids `.pt` **ne sont pas dans Git** (trop lourds). Ils doivent être présents aux chemins ci-dessous.
+Les **trois poids déployés** sont dans ce dépôt. Les datasets d’entraînement (plusieurs Go) restent hors Git.
 
-| Scénario | Fichier | Chemin attendu |
+| Scénario | Fichier | Chemin dans le dépôt |
 |---|---|---|
-| Bureau | `yolo11m-pose.pt` | `Office_Monitoring_v2/Sleeping/yolo11m-pose.pt` |
-| Bureau | `phone_model.pt` | `Office_Monitoring_v2/phone_model.pt` |
-| Cuisine | `bestfinal.pt` | `PPE_Restaurant/bestfinal.pt` |
+| Bureau | `yolo11m-pose.pt` | `ai_engine/models/yolo11m-pose.pt` |
+| Bureau | `phone_model.pt` | `ai_engine/models/phone_model.pt` |
+| Cuisine | `bestfinal.pt` | `ai_engine/models/bestfinal.pt` |
 
 `config.yaml` est la source unique des seuils : le frontend n’en code aucun en dur.
 
@@ -51,7 +51,7 @@ Une détection YOLO n’est jamais une alerte : l’état doit **persister** au-
 
 - PHP 8.2+, Composer, Node.js 20+
 - Python 3.11 et un venv avec `ai_engine/requirements.txt` (Torch, Ultralytics, OpenCV, Flask, yt-dlp)
-- Les trois fichiers `.pt` aux chemins indiqués
+- Les trois fichiers `.pt` (inclus au clone, chemins ci-dessus)
 - Pour une source **YouTube** : [Deno](https://deno.land) 2.3+ (PATH ou `%USERPROFILE%\.deno\bin`)
 
 ---
@@ -102,7 +102,7 @@ docker compose up --build
 
 Puis http://localhost:3000.
 
-Les `.pt` restent **hors image** (volumes `Office_Monitoring_v2` et `PPE_Restaurant`). Pour installer Torch dans l’image moteur :
+Les `.pt` sont copiés dans l’image via `ai_engine/models/`. Pour installer Torch dans l’image moteur :
 
 ```bash
 docker compose build --build-arg INSTALL_ML=1 ai_engine

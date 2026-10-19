@@ -43,12 +43,12 @@ scenarios:
     models:
       - name: "yolo11m-pose.pt"
         role: "Estimation de pose"
-        path: "../Office_Monitoring_v2/Sleeping/yolo11m-pose.pt"
+        path: "models/yolo11m-pose.pt"
         # Modèle principal : sa confiance est pilotée par le curseur.
         primary: true
       - name: "phone_model.pt"
         role: "Détection de téléphone"
-        path: "../Office_Monitoring_v2/phone_model.pt"
+        path: "models/phone_model.pt"
         # Seuil calibré du prototype : ce modèle est bruyant en dessous.
         confidence: 0.88
 
@@ -138,7 +138,7 @@ scenarios:
     models:
       - name: "bestfinal.pt"
         role: "Détection des EPI"
-        path: "../PPE_Restaurant/bestfinal.pt"
+        path: "models/bestfinal.pt"
         primary: true
 
     inference:

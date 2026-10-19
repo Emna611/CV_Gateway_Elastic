@@ -31,6 +31,7 @@ RUN pip install --no-cache-dir flask opencv-python-headless pyyaml requests "yt-
 
 COPY app.py config.yaml ./
 COPY engine ./engine
+COPY models ./models
 
 ENV ENGINE_HOST=0.0.0.0
 ENV ENGINE_PORT=5000

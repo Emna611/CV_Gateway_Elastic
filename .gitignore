@@ -9,17 +9,16 @@ venv/
 __pycache__/
 *.py[cod]
 
-# Poids de modèles et jeux de données (versionnés hors git)
+# Jeux de données et artefacts d'entraînement (plusieurs Go).
 *.pt
+!ai_engine/models/*.pt
 dataset/
 datasets/
 input_video/
 runs/
 
-# Ateliers YOLO hors périmètre de l'application déployée.
-# Office_Monitoring_v2 est un dépôt git autonome (il possède son propre .git) ;
-# PPE_Restaurant contient des dizaines de milliers d'images et de captures.
-# Ils sont montés en volume au runtime, la CI n'en a pas besoin.
+# Ateliers YOLO (datasets, .venv, dépôt git imbriqué) — hors livrable.
+# Les poids déployés sont dans ai_engine/models/.
 Office_Monitoring_v2/
 PPE_Restaurant/
 
